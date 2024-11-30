@@ -28,6 +28,11 @@ app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+// Define a root route (optional)
+app.get("/", (req, res) => {
+  res.send("Backend is running!");
+});
+
 
 // Test endpoint for API
 app.get("/api", (req, res) => {
