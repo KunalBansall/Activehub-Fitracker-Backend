@@ -16,7 +16,7 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL, // Dynamically set from environment variable
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Dynamically set from environment variable
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
