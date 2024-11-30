@@ -1,7 +1,9 @@
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
-require("dotenv").config();
+require("dotenv").config({
+  path: require("path").resolve(__dirname, "../.env"),
+});
 
 const connectDB = require("./config/database");
 const authRoutes = require("./routes/auth");
@@ -14,14 +16,32 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
-// Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Dynamically set from environment variable
+  origin: (origin, callback) => {
+    console.log("Request Origin:", origin); // Logs the request origin
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'http://localhost:5173',
+    ];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+
+app.use((req, res, next) => {
+  console.log("Request Origin:", req.headers.origin);
+  next();
+});
+
 app.use(morgan("dev"));
 app.use(express.json());
+console.log("Frontend URL from .env:", process.env.FRONTEND_URL);
 
 // API Routes
 app.use("/api/auth", authRoutes);
@@ -32,7 +52,6 @@ app.use("/api/dashboard", dashboardRoutes);
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });
-
 
 // Test endpoint for API
 app.get("/api", (req, res) => {
