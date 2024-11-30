@@ -1,7 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
-const path = require("path");
 require("dotenv").config();
 
 const connectDB = require("./config/database");
@@ -16,7 +15,11 @@ const app = express();
 connectDB();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL, // Dynamically set from environment variable
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(morgan("dev"));
 app.use(express.json());
 
@@ -25,19 +28,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/dashboard", dashboardRoutes);
-
-// Serve the frontend build in production
-if (process.env.NODE_ENV === "production") {
-  const frontendPath = path.join(__dirname, "../frontend/dist");
-
-  // Serve static files from the frontend build folder
-  app.use(express.static(frontendPath));
-
-  // Serve index.html for non-API routes
-  app.get("*", (req, res) => {
-    res.sendFile(path.resolve(frontendPath, "index.html"));
-  });
-}
 
 // Test endpoint for API
 app.get("/api", (req, res) => {
