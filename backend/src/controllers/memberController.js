@@ -3,14 +3,38 @@ const Attendance = require('../models/Attendance');
 const { validationResult } = require('express-validator');
 
 // Get All Members
+// Get All Members with Last Check-In
 exports.getAllMembers = async (req, res) => {
   try {
-    const members = await Member.find().select('-__v');
-    const membersWithStatus = members.map(member => ({
-      ...member.toObject(),
-      membershipStatus: member.membershipEndDate <= new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) ? 'warning' : 'normal'
-    }));
-    res.json(membersWithStatus);
+    const membersWithLastCheckIn = await Member.aggregate([
+      {
+        $lookup: {
+          from: 'attendances', // Reference Attendance collection
+          localField: '_id',
+          foreignField: 'memberId',
+          as: 'attendanceRecords',
+        },
+      },
+      {
+        $addFields: {
+          lastCheckIn: { $max: '$attendanceRecords.entryTime' }, // Get the latest entry time
+          membershipStatus: {
+            $cond: [
+              { $lte: ['$membershipEndDate', new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)] },
+              'warning',
+              'normal',
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          attendanceRecords: 0, // Exclude attendance records array for cleaner output
+        },
+      },
+    ]);
+
+    res.json(membersWithLastCheckIn);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
