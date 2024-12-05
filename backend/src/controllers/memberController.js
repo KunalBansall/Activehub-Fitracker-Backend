@@ -2,11 +2,13 @@ const Member = require('../models/Member');
 const Attendance = require('../models/Attendance');
 const { validationResult } = require('express-validator');
 
-// Get All Members
-// Get All Members with Last Check-In
+// Get All Members (with Last Check-In and Data Isolation)
 exports.getAllMembers = async (req, res) => {
   try {
+    const adminGymId = req.admin._id; // Admin's gym ID from middleware
+
     const membersWithLastCheckIn = await Member.aggregate([
+      { $match: { gymId: adminGymId } }, // Match members for the logged-in admin
       {
         $lookup: {
           from: 'attendances', // Reference Attendance collection
@@ -40,27 +42,33 @@ exports.getAllMembers = async (req, res) => {
   }
 };
 
-// Search Members
+// Search Members (with Data Isolation)
 exports.searchMembers = async (req, res) => {
   const { query } = req.query;
+  const adminGymId = req.admin._id; // Admin's gym ID from middleware
+
   try {
     const members = await Member.find({
+      gymId: adminGymId,
       $or: [
         { name: { $regex: query, $options: 'i' } },
         { phoneNumber: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } }
-      ]
+        { email: { $regex: query, $options: 'i' } },
+      ],
     });
+
     res.json(members);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Get Member Details
+// Get Member Details (with Data Isolation)
 exports.getMemberDetails = async (req, res) => {
+  const adminGymId = req.admin._id;
+
   try {
-    const member = await Member.findById(req.params.id);
+    const member = await Member.findOne({ _id: req.params.id, gymId: adminGymId });
     if (!member) {
       return res.status(404).json({ message: 'Member not found' });
     }
@@ -75,34 +83,31 @@ exports.getMemberDetails = async (req, res) => {
   }
 };
 
-// Create Member
+// Create Member (Link to Admin's Gym)
 exports.createMember = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  try {
-    const membershipStartDate = new Date(); // Current date
-    const membershipEndDate = new Date(membershipStartDate); // Start with the current date
+  const adminGymId = req.admin._id; // Admin's gym ID from middleware
 
-    // Ensure the durationMonths is a valid number
+  try {
+    const membershipStartDate = new Date();
+    const membershipEndDate = new Date(membershipStartDate);
+
     const durationMonths = parseInt(req.body.durationMonths, 10);
     if (isNaN(durationMonths) || durationMonths <= 0) {
       return res.status(400).json({ message: 'Invalid durationMonths value' });
     }
 
-    // Add the months to the membershipEndDate
     membershipEndDate.setMonth(membershipEndDate.getMonth() + durationMonths);
-
-    // Log the calculated dates for debugging
-    console.log('Membership Start Date:', membershipStartDate);
-    console.log('Calculated Membership End Date:', membershipEndDate);
 
     const member = await Member.create({
       ...req.body,
+      gymId: adminGymId, // Associate the member with the admin's gym
       membershipStartDate,
-      membershipEndDate
+      membershipEndDate,
     });
 
     res.status(201).json(member);
@@ -111,40 +116,51 @@ exports.createMember = async (req, res) => {
   }
 };
 
-// Update Member
+// Update Member (with Data Isolation)
 exports.updateMember = async (req, res) => {
+  const adminGymId = req.admin._id;
+
   try {
-    const member = await Member.findById(req.params.id);
+    const member = await Member.findOne({ _id: req.params.id, gymId: adminGymId });
     if (!member) {
       return res.status(404).json({ message: 'Member not found' });
     }
 
-    // Check if the durationMonths is updated
     if (req.body.durationMonths) {
       const newDurationMonths = parseInt(req.body.durationMonths, 10);
-
-      // Validate if durationMonths is a positive number
       if (isNaN(newDurationMonths) || newDurationMonths <= 0) {
         return res.status(400).json({ message: 'Invalid durationMonths value' });
       }
 
-      // Set new membershipEndDate based on the current date (or membershipStartDate if you prefer)
       const newEndDate = new Date();
       newEndDate.setMonth(newEndDate.getMonth() + newDurationMonths);
-      
-      // Update the membershipEndDate in the request body
       req.body.membershipEndDate = newEndDate;
     }
 
-    // Update the member with new data
     const updatedMember = await Member.findByIdAndUpdate(
       req.params.id,
       { $set: req.body },
       { new: true }
     );
-    
+
     res.json(updatedMember);
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+};
+
+// Delete Member (with Data Isolation)
+exports.deleteMember = async (req, res) => {
+  const adminGymId = req.admin._id;
+
+  try {
+    const member = await Member.findOneAndDelete({ _id: req.params.id, gymId: adminGymId });
+    if (!member) {
+      return res.status(404).json({ message: 'Member not found or already deleted' });
+    }
+
+    res.json({ message: 'Member deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

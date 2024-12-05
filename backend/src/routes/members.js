@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const memberController = require('../controllers/memberController');
+const { authenticateAdmin } = require('../middleware/auth');
+
 
 // Validation middleware
 const memberValidation = [
@@ -15,6 +17,7 @@ const memberValidation = [
   body('fees').isFloat({ min: 0 }),
   body('feeStatus').isIn(['paid', 'due'])
 ];
+router.use(authenticateAdmin);
 
 router.get('/', memberController.getAllMembers);
 router.get('/search', memberController.searchMembers);

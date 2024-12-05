@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const memberSchema = new mongoose.Schema({
+  gymId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin', // Assuming you have an Admin model
+    required: true
+  },
   name: {
     type: String,
     required: true
