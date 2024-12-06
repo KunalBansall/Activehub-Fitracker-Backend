@@ -7,7 +7,7 @@ require("dotenv").config({
 const nodemailer = require('nodemailer');
 const Admin = require('./models/Admin')
 const jwt = require('jsonwebtoken')
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcryptjs')
 
 const connectDB = require("./config/database");
 const authRoutes = require("./routes/auth");
