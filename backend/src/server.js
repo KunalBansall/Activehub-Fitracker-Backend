@@ -73,9 +73,10 @@ app.post('/api/forgot-password', (req,res)=>{
   const {email}= req.body;
   Admin.findOne({email:email})
   .then(user=>{
-   if(!user){
-    return res.send({Status: "user not exists"})
-   }
+    if (!user) {
+      return res.status(404).send({ Status: "user not exists", message: 'User does not exist' });
+    }
+    
    const token = jwt.sign({id:user._id},"jwt_secret_key",{expiresIn:"1d"})
    var nodemailer = require('nodemailer');
 
