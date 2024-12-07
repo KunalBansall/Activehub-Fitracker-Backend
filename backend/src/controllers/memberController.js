@@ -85,6 +85,9 @@ exports.getMemberDetails = async (req, res) => {
 
 // Create Member (Link to Admin's Gym)
 exports.createMember = async (req, res) => {
+  const { validationResult } = require("express-validator");
+  const nodemailer = require("nodemailer");
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -93,16 +96,35 @@ exports.createMember = async (req, res) => {
   const adminGymId = req.admin._id; // Admin's gym ID from middleware
 
   try {
+    // Check for duplicates in the same gym
+    const { email, phoneNumber } = req.body;
+    const existingMember = await Member.findOne({
+      gymId: adminGymId,
+      $or: [{ email }, { phoneNumber }],
+    });
+
+    if (existingMember) {
+      return res.status(409).json({
+        message: "Duplicate entry detected",
+        duplicateFields: {
+          ...(existingMember.email === email && { email }),
+          ...(existingMember.phoneNumber === phoneNumber && { phoneNumber }),
+        },
+      });
+    }
+
+    // Calculate membership dates
     const membershipStartDate = new Date();
     const membershipEndDate = new Date(membershipStartDate);
 
     const durationMonths = parseInt(req.body.durationMonths, 10);
     if (isNaN(durationMonths) || durationMonths <= 0) {
-      return res.status(400).json({ message: 'Invalid durationMonths value' });
+      return res.status(400).json({ message: "Invalid durationMonths value" });
     }
 
     membershipEndDate.setMonth(membershipEndDate.getMonth() + durationMonths);
 
+    // Create a new member
     const member = await Member.create({
       ...req.body,
       gymId: adminGymId, // Associate the member with the admin's gym
@@ -110,11 +132,46 @@ exports.createMember = async (req, res) => {
       membershipEndDate,
     });
 
-    res.status(201).json(member);
+    // Send Welcome Email
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: member.email,
+      subject: `Welcome to ${req.admin.gymName || "our Gym"}`,
+      text: `Hi ${member.name},\n\n` +
+        `We are delighted to welcome you to ${req.admin.gymName || "our gym"}! 🎉\n\n` +
+        `Your membership has been successfully activated, and we are excited to support you on your fitness journey.\n\n` +
+        `Your membership is valid from ${membershipStartDate.toDateString()} to ${membershipEndDate.toDateString()}. We have a variety of facilities and programs designed to help you achieve your goals. 💪\n\n` +
+        `If you ever need assistance or have any questions, don’t hesitate to reach out to us. We're here to help! 😊\n\n` +
+        `Best regards,\n` +
+        `The ${req.admin.gymName || "Gym"} Team`
+    };
+    
+
+    let emailSent = false;
+    try {
+      await transporter.sendMail(mailOptions);
+      emailSent = true;
+      console.log("Welcome email sent successfully to:", member.email);
+    } catch (error) {
+      console.error("Error sending welcome email:", error);
+    }
+
+    // Include emailSent flag in the response
+    res.status(201).json({ member, emailSent });
   } catch (err) {
+    console.error(err);
     res.status(400).json({ message: err.message });
   }
 };
+
 
 // Update Member (with Data Isolation)
 exports.updateMember = async (req, res) => {
