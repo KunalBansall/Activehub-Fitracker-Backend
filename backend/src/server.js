@@ -10,6 +10,7 @@ const authRoutes = require("./routes/auth");
 const memberRoutes = require("./routes/members");
 const attendanceRoutes = require("./routes/attendance");
 const dashboardRoutes = require("./routes/dashboard");
+const adminRoutes = require("./routes/admin");
 
 const app = express();
 
@@ -49,6 +50,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/admin", adminRoutes);
+
 // Define a root route (optional)
 app.get("/", (req, res) => {
   res.send("Backend is running!");
