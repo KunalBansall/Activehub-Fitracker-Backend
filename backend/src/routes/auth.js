@@ -18,4 +18,9 @@ router.post('/signin', [
   body('password').notEmpty().withMessage('Password is required')
 ], authController.signin);
 
+router.post('/forgot-password', authController.forgotPassword);
+
+// Reset Password Route
+router.post('/reset-password/:id/:token', authController.resetPassword);
+
 module.exports = router;
