@@ -32,7 +32,7 @@ exports.getAdminProfile = async (req, res) => {
 // Update Admin Profile
 exports.updateAdminProfile = async (req, res) => {
   try {
-    const adminId = req.user._id;
+    const adminId = req.admin._id;
     const updates = req.body;
 
     // Only allow these fields to be updated

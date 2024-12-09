@@ -1,6 +1,6 @@
-const Member = require('../models/Member');
-const Attendance = require('../models/Attendance');
-const { validationResult } = require('express-validator');
+const Member = require("../models/Member");
+const Attendance = require("../models/Attendance");
+const nodemailer = require("nodemailer");
 
 // Get All Members (with Last Check-In and Data Isolation)
 exports.getAllMembers = async (req, res) => {
@@ -11,20 +11,25 @@ exports.getAllMembers = async (req, res) => {
       { $match: { gymId: adminGymId } }, // Match members for the logged-in admin
       {
         $lookup: {
-          from: 'attendances', // Reference Attendance collection
-          localField: '_id',
-          foreignField: 'memberId',
-          as: 'attendanceRecords',
+          from: "attendances", // Reference Attendance collection
+          localField: "_id",
+          foreignField: "memberId",
+          as: "attendanceRecords",
         },
       },
       {
         $addFields: {
-          lastCheckIn: { $max: '$attendanceRecords.entryTime' }, // Get the latest entry time
+          lastCheckIn: { $max: "$attendanceRecords.entryTime" }, // Get the latest entry time
           membershipStatus: {
             $cond: [
-              { $lte: ['$membershipEndDate', new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)] },
-              'warning',
-              'normal',
+              {
+                $lte: [
+                  "$membershipEndDate",
+                  new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+                ],
+              },
+              "warning",
+              "normal",
             ],
           },
         },
@@ -51,9 +56,9 @@ exports.searchMembers = async (req, res) => {
     const members = await Member.find({
       gymId: adminGymId,
       $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { phoneNumber: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } },
+        { name: { $regex: query, $options: "i" } },
+        { phoneNumber: { $regex: query, $options: "i" } },
+        { email: { $regex: query, $options: "i" } },
       ],
     });
 
@@ -68,9 +73,12 @@ exports.getMemberDetails = async (req, res) => {
   const adminGymId = req.admin._id;
 
   try {
-    const member = await Member.findOne({ _id: req.params.id, gymId: adminGymId });
+    const member = await Member.findOne({
+      _id: req.params.id,
+      gymId: adminGymId,
+    });
     if (!member) {
-      return res.status(404).json({ message: 'Member not found' });
+      return res.status(404).json({ message: "Member not found" });
     }
 
     const attendance = await Attendance.find({ memberId: member._id })
@@ -145,15 +153,35 @@ exports.createMember = async (req, res) => {
       from: process.env.EMAIL_USER,
       to: member.email,
       subject: `Welcome to ${req.admin.gymName || "our Gym"}`,
-      text: `Hi ${member.name},\n\n` +
-        `We are delighted to welcome you to ${req.admin.gymName || "our gym"}! 🎉\n\n` +
-        `Your membership has been successfully activated, and we are excited to support you on your fitness journey.\n\n` +
-        `Your membership is valid from ${membershipStartDate.toDateString()} to ${membershipEndDate.toDateString()}. We have a variety of facilities and programs designed to help you achieve your goals. 💪\n\n` +
-        `If you ever need assistance or have any questions, don’t hesitate to reach out to us. We're here to help! 😊\n\n` +
-        `Best regards,\n` +
-        `The ${req.admin.gymName || "Gym"} Team`
+      html: `
+           <html>
+          <body style="font-family: Arial, sans-serif; background-color: #f8f9fa; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+              <h2 style="color: #1D4ED8; text-align: center;">Welcome to ${
+                req.admin.gymName || "Our Gym"
+              }</h2>
+              <p style="font-size: 16px;">Dear <strong>${
+                member.name
+              }</strong>,</p>
+              <p style="font-size: 16px;">We are delighted to welcome you to <strong>${
+                req.admin.gymName || "our gym"
+              }</strong>! 🎉</p>
+              <p style="font-size: 16px;">Your membership has been successfully activated, and we are excited to support you on your fitness journey.</p>
+              <p style="font-size: 16px;">Your membership is valid from <strong style="font-weight: bold; color: #212529;">${membershipStartDate.toDateString()}</strong> to <strong style="font-weight: bold; color: #212529;">${membershipEndDate.toDateString()}</strong>. We have a variety of facilities and programs designed to help you achieve your goals. 💪</p>
+              <div style="text-align: center; margin-top: 20px;">
+                <a href="https://activehub-fitracker.onrender.com/" style="background-color: #1D4ED8; color: white; padding: 10px 20px; font-size: 16px; text-decoration: none; border-radius: 4px;">Visit Your Gym</a>
+              </div>
+              <p style="font-size: 16px; margin-top: 30px;">If you ever need assistance or have any questions, don’t hesitate to reach out to us. We're here to help! 😊</p>
+              <p style="font-size: 16px; color: #6c757d;">Best regards,</p>
+              <p style="font-size: 16px; color: #6c757d;">The ${
+                req.admin.gymName || "Gym"
+              } Team</p>
+              <p style="font-size: 14px; color: #6c757d; text-align: center;">&copy; ${new Date().getFullYear()} ${"ActiveHub Fitracker"}. All rights reserved.</p>
+            </div>
+          </body>
+        </html>
+      `,
     };
-    
 
     let emailSent = false;
     try {
@@ -172,21 +200,25 @@ exports.createMember = async (req, res) => {
   }
 };
 
-
 // Update Member (with Data Isolation)
 exports.updateMember = async (req, res) => {
   const adminGymId = req.admin._id;
 
   try {
-    const member = await Member.findOne({ _id: req.params.id, gymId: adminGymId });
+    const member = await Member.findOne({
+      _id: req.params.id,
+      gymId: adminGymId,
+    });
     if (!member) {
-      return res.status(404).json({ message: 'Member not found' });
+      return res.status(404).json({ message: "Member not found" });
     }
 
     if (req.body.durationMonths) {
       const newDurationMonths = parseInt(req.body.durationMonths, 10);
       if (isNaN(newDurationMonths) || newDurationMonths <= 0) {
-        return res.status(400).json({ message: 'Invalid durationMonths value' });
+        return res
+          .status(400)
+          .json({ message: "Invalid durationMonths value" });
       }
 
       const newEndDate = new Date();
@@ -211,13 +243,89 @@ exports.deleteMember = async (req, res) => {
   const adminGymId = req.admin._id;
 
   try {
-    const member = await Member.findOneAndDelete({ _id: req.params.id, gymId: adminGymId });
+    const member = await Member.findOneAndDelete({
+      _id: req.params.id,
+      gymId: adminGymId,
+    });
     if (!member) {
-      return res.status(404).json({ message: 'Member not found or already deleted' });
+      return res
+        .status(404)
+        .json({ message: "Member not found or already deleted" });
     }
 
-    res.json({ message: 'Member deleted successfully' });
+    res.json({ message: "Member deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// Set up Nodemailer transporter
+const transporter = nodemailer.createTransport({
+  service: "gmail", // Replace with your email provider
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS, // Use your email password or an App Password for security
+  },
+});
+
+// Controller function to send membership renewal reminder
+exports.sendRenewalReminder = async (req, res) => {
+  const { memberId } = req.body;
+
+  try {
+    const member = await Member.findById(memberId);
+
+    if (!member) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+
+    const membershipEndDate = new Date(member.membershipEndDate);
+    const today = new Date();
+    const daysRemaining = Math.floor(
+      (membershipEndDate - today) / (1000 * 60 * 60 * 24)
+    );
+
+    // Send reminder only if membership is near expiration
+    if (daysRemaining <= 365) {
+      // Send email with Nodemailer
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: member.email,
+        subject: "Membership Renewal Reminder",
+        html: `
+          <html>
+            <body style="font-family: Arial, sans-serif; background-color: #f8f9fa; color: #333;">
+              <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+                <h2 style="color: #1D4ED8; text-align: center;">Membership Renewal Reminder</h2>
+                <p style="font-size: 16px;">Dear <strong>${
+                  member.name
+                }</strong>,</p>
+                <p style="font-size: 16px;">We hope you're enjoying your time at our gym! We wanted to remind you that your membership will expire on <strong>${membershipEndDate.toDateString()}</strong>.</p>
+                <p style="font-size: 16px; font-weight: bold; color: #e63946;">Don't let your membership lapse! Renew today to continue enjoying all the benefits of being a member of our gym.</p>
+                <div style="text-align: center; margin-top: 20px;">
+                  <a href="https://activehub-fitracker.onrender.com/" style="background-color: #1D4ED8; color: white; padding: 10px 20px; font-size: 16px; text-decoration: none; border-radius: 4px;">Renew Your Membership</a>
+                </div>
+                <p style="font-size: 16px; margin-top: 30px;">If you have any questions or need assistance with your renewal, feel free to contact us at <strong>activehubfitracker.com</strong>.</p>
+                <p style="font-size: 16px; color: #6c757d;">Thank you for being a valued member of our gym!</p>
+                <p style="font-size: 14px; color: #6c757d; text-align: center;">&copy; ${new Date().getFullYear()} ActiveHub Fitracker. All rights reserved.</p>
+              </div>
+            </body>
+          </html>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      return res
+        .status(200)
+        .json({ message: "Notification sent successfully" });
+    } else {
+      return res
+        .status(200)
+        .json({ message: "Membership is not expiring soon" });
+    }
+  } catch (error) {
+    console.error("Error sending email:", error);
+    return res.status(500).json({ message: "Failed to send notification" });
   }
 };
