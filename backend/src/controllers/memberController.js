@@ -1,6 +1,8 @@
 const Member = require("../models/Member");
 const Attendance = require("../models/Attendance");
 const nodemailer = require("nodemailer");
+const crypto = require("crypto");
+const moment = require("moment");
 
 // Get All Members (with Last Check-In and Data Isolation)
 exports.getAllMembers = async (req, res) => {
@@ -92,20 +94,22 @@ exports.getMemberDetails = async (req, res) => {
 };
 
 // Create Member (Link to Admin's Gym)
+
+// Create Member (Include Password Reset Link)
 exports.createMember = async (req, res) => {
   const { validationResult } = require("express-validator");
-  const nodemailer = require("nodemailer");
-
   const errors = validationResult(req);
+
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const adminGymId = req.admin._id; // Admin's gym ID from middleware
+  const adminGymId = req.admin._id;
 
   try {
     // Check for duplicates in the same gym
-    const { email, phoneNumber } = req.body;
+    const { email, phoneNumber, durationMonths } = req.body;
+
     const existingMember = await Member.findOne({
       gymId: adminGymId,
       $or: [{ email }, { phoneNumber }],
@@ -121,26 +125,36 @@ exports.createMember = async (req, res) => {
       });
     }
 
-    // Calculate membership dates
+    // Set membershipStartDate to the current date if not provided
     const membershipStartDate = new Date();
-    const membershipEndDate = new Date(membershipStartDate);
 
-    const durationMonths = parseInt(req.body.durationMonths, 10);
-    if (isNaN(durationMonths) || durationMonths <= 0) {
-      return res.status(400).json({ message: "Invalid durationMonths value" });
+    // Calculate membershipEndDate (adding months to membershipStartDate)
+    const endDate = new Date(membershipStartDate);
+    endDate.setMonth(endDate.getMonth() + durationMonths); // Add the number of months to start date
+
+    // Ensure the calculated membershipEndDate is valid
+    if (isNaN(endDate.getTime())) {
+      return res.status(400).json({ message: "Invalid membership end date." });
     }
 
-    membershipEndDate.setMonth(membershipEndDate.getMonth() + durationMonths);
+    // Log for debugging
+    console.log(`Start Date: ${membershipStartDate}, End Date: ${endDate}`);
 
-    // Create a new member
+    // Generate password reset token (valid for 24 hours)
+    const resetToken = crypto.randomBytes(20).toString("hex");
+    const resetTokenExpiration = moment().add(1, "days").toDate(); // Expire in 1 day
+
+    // Create a new member with the calculated membershipEndDate and reset token info
     const member = await Member.create({
       ...req.body,
-      gymId: adminGymId, // Associate the member with the admin's gym
-      membershipStartDate,
-      membershipEndDate,
+      gymId: adminGymId,
+      membershipStartDate, // Use current date for membershipStartDate
+      membershipEndDate: endDate,
+      resetToken,
+      resetTokenExpiration,
     });
 
-    // Send Welcome Email
+    // Send Welcome Email with Reset Password Link
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -154,32 +168,73 @@ exports.createMember = async (req, res) => {
       to: member.email,
       subject: `Welcome to ${req.admin.gymName || "our Gym"}`,
       html: `
-           <html>
-          <body style="font-family: Arial, sans-serif; background-color: #f8f9fa; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
-              <h2 style="color: #1D4ED8; text-align: center;">Welcome to ${
-                req.admin.gymName || "Our Gym"
-              }</h2>
-              <p style="font-size: 16px;">Dear <strong>${
-                member.name
-              }</strong>,</p>
-              <p style="font-size: 16px;">We are delighted to welcome you to <strong>${
-                req.admin.gymName || "our gym"
-              }</strong>! 🎉</p>
-              <p style="font-size: 16px;">Your membership has been successfully activated, and we are excited to support you on your fitness journey.</p>
-              <p style="font-size: 16px;">Your membership is valid from <strong style="font-weight: bold; color: #212529;">${membershipStartDate.toDateString()}</strong> to <strong style="font-weight: bold; color: #212529;">${membershipEndDate.toDateString()}</strong>. We have a variety of facilities and programs designed to help you achieve your goals. 💪</p>
-              <div style="text-align: center; margin-top: 20px;">
-                <a href="https://activehub-fitracker.onrender.com/" style="background-color: #1D4ED8; color: white; padding: 10px 20px; font-size: 16px; text-decoration: none; border-radius: 4px;">Visit Your Gym</a>
-              </div>
-              <p style="font-size: 16px; margin-top: 30px;">If you ever need assistance or have any questions, don’t hesitate to reach out to us. We're here to help! 😊</p>
-              <p style="font-size: 16px; color: #6c757d;">Best regards,</p>
-              <p style="font-size: 16px; color: #6c757d;">The ${
-                req.admin.gymName || "Gym"
-              } Team</p>
-              <p style="font-size: 14px; color: #6c757d; text-align: center;">&copy; ${new Date().getFullYear()} ${"ActiveHub Fitracker"}. All rights reserved.</p>
-            </div>
-          </body>
-        </html>
+        <html>
+  <body style="font-family: Arial, sans-serif; background-color: #f8f9fa; color: #333; margin: 0; padding: 0;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+      
+      <!-- Header -->
+      <div style="text-align: center; padding-bottom: 20px;">
+        <h2 style="color: #1D4ED8; font-size: 24px; font-weight: bold; margin: 0;">Welcome to ${
+          req.admin.gymName || "Our Gym"
+        }</h2>
+      </div>
+      
+      <!-- Greeting & Introduction -->
+      <p style="font-size: 16px; line-height: 1.5; color: #333;">
+        Dear <strong>${member.name}</strong>,
+      </p>
+      <p style="font-size: 16px; line-height: 1.5; color: #333;">
+        We are thrilled to have you join <strong>${
+          req.admin.gymName || "our gym"
+        }</strong>! 🎉
+      </p>
+      
+      <!-- Instructions -->
+      <p style="font-size: 16px; line-height: 1.5; color: #333;">
+        To get started, please set your password by clicking the link below. This will help you manage your gym profile, track your progress, and enjoy all the features we offer.
+      </p>
+      
+      <!-- Password Reset Link -->
+      <div style="text-align: center; margin-top: 20px;">
+        <a href="${process.env.FRONTEND_URL}/set-password/${
+        member.id
+      }/${resetToken}" 
+           style="background-color: #1D4ED8; color: white; padding: 12px 25px; font-size: 16px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+           Set Your Password
+        </a>
+      </div>
+      
+      <!-- Additional Info -->
+      <p style="font-size: 16px; line-height: 1.5; color: #333; margin-top: 30px;">
+        Once your password is set, you will be able to access all features including:
+      </p>
+      <ul style="font-size: 16px; line-height: 1.5; color: #333; margin-left: 20px; list-style-type: disc;">
+        <li>View your gym profile and details</li>
+        <li>Track your attendance and workouts</li>
+        <li>Access personalized exercise routines</li>
+        <li>Connect with your trainer and much more!</li>
+      </ul>
+      
+      <!-- Contact Info -->
+      <p style="font-size: 16px; line-height: 1.5; color: #333; margin-top: 30px;">
+        If you have any questions or need assistance, don't hesitate to reach out to us. We're here to help!
+      </p>
+      
+      <!-- Footer -->
+      <p style="font-size: 16px; color: #6c757d; text-align: center; margin-top: 30px;">
+        Best regards,<br>
+        The <strong>${req.admin.gymName || "Gym"}</strong> Team
+      </p>
+      
+      <!-- Copyright -->
+      <p style="font-size: 14px; color: #6c757d; text-align: center; margin-top: 20px;">
+        &copy; ${new Date().getFullYear()} ActiveHub Fitracker. All rights reserved.
+      </p>
+      
+    </div>
+  </body>
+</html>
+
       `,
     };
 
@@ -192,14 +247,13 @@ exports.createMember = async (req, res) => {
       console.error("Error sending welcome email:", error);
     }
 
-    // Include emailSent flag in the response
+    // Respond with the member and email status
     res.status(201).json({ member, emailSent });
   } catch (err) {
     console.error(err);
     res.status(400).json({ message: err.message });
   }
 };
-
 // Update Member (with Data Isolation)
 exports.updateMember = async (req, res) => {
   const adminGymId = req.admin._id;
@@ -316,9 +370,7 @@ exports.sendRenewalReminder = async (req, res) => {
 
       await transporter.sendMail(mailOptions);
 
-      return res
-        .status(200)
-        .json({ message: "Notification sent successfully" });
+      return res.status(200).json({ message: "Reminder sent successfully" });
     } else {
       return res
         .status(200)

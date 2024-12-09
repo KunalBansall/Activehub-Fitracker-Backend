@@ -149,12 +149,10 @@ exports.resetPassword = async (req, res) => {
   try {
     jwt.verify(token, process.env.JWT_SECRET, async (err) => {
       if (err) {
-        return res
-          .status(400)
-          .json({
-            Status: "Error with token",
-            message: "Invalid or expired token",
-          });
+        return res.status(400).json({
+          Status: "Error with token",
+          message: "Invalid or expired token",
+        });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);

@@ -5,13 +5,13 @@ require("dotenv").config({
   path: require("path").resolve(__dirname, "../.env"),
 });
 
-const nodemailer = require("nodemailer");
 const connectDB = require("./config/database");
 const authRoutes = require("./routes/auth");
 const memberRoutes = require("./routes/members");
 const attendanceRoutes = require("./routes/attendance");
 const dashboardRoutes = require("./routes/dashboard");
 const adminRoutes = require("./routes/admin");
+const memberAuthRoutes = require("./routes/memberAuth");
 
 const app = express();
 
@@ -22,10 +22,10 @@ app.use(morgan("dev"));
 app.use(express.json());
 console.log("Frontend URL from .env:", process.env.FRONTEND_URL);
 
-
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
+app.use("/api/member-auth", memberAuthRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/admin", adminRoutes);
