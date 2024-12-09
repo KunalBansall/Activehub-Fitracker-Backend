@@ -30,12 +30,17 @@ const setPassword = async (req, res) => {
 
     await member.save();
 
-    return res.status(200).json({ message: "Password set successfully!" });
+    // Return success response
+    return res.status(200).json({ 
+      member, 
+      message: "Password set successfully!" 
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Something went wrong" });
   }
 };
+
 
 const login = async (req, res) => {
   const { email, password } = req.body;
