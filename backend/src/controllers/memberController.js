@@ -286,7 +286,7 @@ exports.sendRenewalReminder = async (req, res) => {
     );
 
     // Send reminder only if membership is near expiration
-    if (daysRemaining <= 365) {
+    if (daysRemaining <= 10) {
       // Send email with Nodemailer
       const mailOptions = {
         from: process.env.EMAIL_USER,
