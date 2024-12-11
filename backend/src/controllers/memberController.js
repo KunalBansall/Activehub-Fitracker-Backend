@@ -3,6 +3,7 @@ const Attendance = require("../models/Attendance");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const moment = require("moment");
+const jwt = require("jsonwebtoken");
 
 // Get All Members (with Last Check-In and Data Isolation)
 exports.getAllMembers = async (req, res) => {
@@ -138,11 +139,17 @@ exports.createMember = async (req, res) => {
     }
 
     // Log for debugging
-    console.log(`Start Date: ${membershipStartDate}, End Date: ${endDate}`);
+    // console.log(`Start Date: ${membershipStartDate}, End Date: ${endDate}`);
 
     // Generate password reset token (valid for 24 hours)
-    const resetToken = crypto.randomBytes(20).toString("hex");
-    const resetTokenExpiration = moment().add(1, "days").toDate(); // Expire in 1 day
+    // const resetToken = crypto.randomBytes(20).toString("hex");
+    // const resetToken = jwt.sign(
+    //   { id: member._id }, // payload
+    //   process.env.JWT_SECRET, // secret
+    //   { expiresIn: "24h" } // token validity
+    // );
+
+    // const resetTokenExpiration = moment().add(1, "days").toDate(); // Expire in 1 day
 
     // Create a new member with the calculated membershipEndDate and reset token info
     const member = await Member.create({
@@ -150,9 +157,14 @@ exports.createMember = async (req, res) => {
       gymId: adminGymId,
       membershipStartDate, // Use current date for membershipStartDate
       membershipEndDate: endDate,
-      resetToken,
-      resetTokenExpiration,
     });
+    const resetToken = jwt.sign(
+      { id: member._id }, // payload
+      process.env.JWT_SECRET, // secret
+      { expiresIn: "24h" } // token validity
+    );
+
+    const resetPasswordLink = `${process.env.FRONTEND_URL}/set-password/${member._id}/${resetToken}`;
 
     // Send Welcome Email with Reset Password Link
     const transporter = nodemailer.createTransport({
@@ -202,9 +214,7 @@ exports.createMember = async (req, res) => {
       
       <!-- Password Reset Link -->
       <div style="text-align: center; margin-top: 20px;">
-        <a href="${process.env.FRONTEND_URL}/set-password/${
-        member.id
-      }/${resetToken}" 
+        <a href="${resetPasswordLink}" 
            style="background-color: #1D4ED8; color: white; padding: 12px 25px; font-size: 16px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
            Set Your Password
         </a>
@@ -248,7 +258,7 @@ exports.createMember = async (req, res) => {
     try {
       await transporter.sendMail(mailOptions);
       emailSent = true;
-      console.log("Welcome email sent successfully to:", member.email);
+      // console.log("Welcome email sent successfully to:", member.email);
     } catch (error) {
       console.error("Error sending welcome email:", error);
     }
