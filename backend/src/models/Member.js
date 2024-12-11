@@ -20,6 +20,7 @@ const memberSchema = new mongoose.Schema(
     phoneNumber: {
       type: String,
       required: true,
+      unique:true,
       match: /^\+?[\d\s-]+$/,
     },
     weight: {

@@ -188,6 +188,12 @@ exports.createMember = async (req, res) => {
           req.admin.gymName || "our gym"
         }</strong>! 🎉
       </p>
+      <!-- Membership Validity Info -->
+<p style="font-size: 16px; line-height: 1.5; color: #333;">
+  Your membership is valid from <strong>${membershipStartDate.toDateString()}</strong>
+  to <strong>${endDate.toDateString()}</strong>.
+</p>
+
       
       <!-- Instructions -->
       <p style="font-size: 16px; line-height: 1.5; color: #333;">

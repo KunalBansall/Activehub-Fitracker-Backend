@@ -1,23 +1,27 @@
+// routes/adminRoutes.js
 const express = require("express");
 const router = express.Router();
 const { body } = require("express-validator");
 const memberController = require("../controllers/memberController");
-const { authenticateAdmin } = require("../middleware/auth");
+const { authenticateAdmin } = require("../middleware/auth"); // Import the middleware
 
 // Validation middleware
 const memberValidation = [
-  body("name").notEmpty(),
-  body("email").isEmail(),
-  body("phoneNumber").matches(/^\+?[\d\s-]+$/),
-  body("weight").isFloat({ min: 20, max: 300 }),
-  body("height").isFloat({ min: 100, max: 250 }),
-  body("membershipType").isIn(["basic", "premium", "platinum"]),
-  body("durationMonths").isInt({ min: 1, max: 60 }),
-  body("fees").isFloat({ min: 0 }),
-  body("feeStatus").isIn(["paid", "due"]),
+    body("name").notEmpty().withMessage("Name is required"),
+    body("email").isEmail().withMessage("Invalid email"),
+    body("phoneNumber").matches(/^\+?[\d\s-]+$/).withMessage("Invalid phone number"),
+    body("weight").isFloat({ min: 20, max: 300 }).withMessage("Invalid weight"),
+    body("height").isFloat({ min: 100, max: 250 }).withMessage("Invalid height"),
+    body("membershipType").isIn(["basic", "premium", "platinum"]).withMessage("Invalid membership type"),
+    body("durationMonths").isInt({ min: 1, max: 60 }).withMessage("Invalid duration"),
+    body("fees").isFloat({ min: 0 }).withMessage("Invalid fees"),
+    body("feeStatus").isIn(["paid", "due"]).withMessage("Invalid fee status"),
 ];
+
+// Apply admin authentication middleware to all routes
 router.use(authenticateAdmin);
 
+// Define routes
 router.get("/", memberController.getAllMembers);
 router.get("/search", memberController.searchMembers);
 router.get("/:id", memberController.getMemberDetails);

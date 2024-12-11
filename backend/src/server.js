@@ -13,6 +13,7 @@ const dashboardRoutes = require("./routes/dashboard");
 const adminRoutes = require("./routes/admin");
 const memberAuthRoutes = require("./routes/memberAuth");
 
+const Member = require('./models/Member');
 const app = express();
 
 // Connect to MongoDB
@@ -29,6 +30,11 @@ app.use("/api/member-auth", memberAuthRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/admin", adminRoutes);
+
+
+
+
+
 
 // Define a root route (optional)
 app.get("/", (req, res) => {
