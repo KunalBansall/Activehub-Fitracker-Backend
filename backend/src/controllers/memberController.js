@@ -283,12 +283,20 @@ exports.updateMember = async (req, res) => {
       return res.status(404).json({ message: "Member not found" });
     }
 
+    // Only update membershipStartDate if it's explicitly provided in the request body
+    if (req.body.membershipStartDate) {
+      const newStartDate = new Date(req.body.membershipStartDate);
+      // Validate if the provided start date is a valid date
+      if (isNaN(newStartDate)) {
+        return res.status(400).json({ message: "Invalid membership start date" });
+      }
+      req.body.membershipStartDate = newStartDate;
+    }
+
     if (req.body.durationMonths) {
       const newDurationMonths = parseInt(req.body.durationMonths, 10);
       if (isNaN(newDurationMonths) || newDurationMonths <= 0) {
-        return res
-          .status(400)
-          .json({ message: "Invalid durationMonths value" });
+        return res.status(400).json({ message: "Invalid durationMonths value" });
       }
 
       const newEndDate = new Date();
@@ -296,6 +304,7 @@ exports.updateMember = async (req, res) => {
       req.body.membershipEndDate = newEndDate;
     }
 
+    // Update the member data, excluding membershipStartDate if not provided
     const updatedMember = await Member.findByIdAndUpdate(
       req.params.id,
       { $set: req.body },
@@ -307,6 +316,7 @@ exports.updateMember = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+
 
 // Delete Member (with Data Isolation)
 exports.deleteMember = async (req, res) => {
