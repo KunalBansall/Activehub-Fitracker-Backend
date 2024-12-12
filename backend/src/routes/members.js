@@ -10,8 +10,6 @@ const memberValidation = [
     body("name").notEmpty().withMessage("Name is required"),
     body("email").isEmail().withMessage("Invalid email"),
     body("phoneNumber").matches(/^\+?[\d\s-]+$/).withMessage("Invalid phone number"),
-    body("weight").isFloat({ min: 20, max: 300 }).withMessage("Invalid weight"),
-    body("height").isFloat({ min: 100, max: 250 }).withMessage("Invalid height"),
     body("membershipType").isIn(["basic", "premium", "platinum"]).withMessage("Invalid membership type"),
     body("durationMonths").isInt({ min: 1, max: 60 }).withMessage("Invalid duration"),
     body("fees").isFloat({ min: 0 }).withMessage("Invalid fees"),
