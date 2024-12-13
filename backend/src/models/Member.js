@@ -71,9 +71,9 @@ const memberSchema = new mongoose.Schema(
       enum: ["active", "expired", "pending"],
       default: "active",
     },
-    membershipType: {
+    slot: {
       type: String,
-      enum: ["basic", "premium", "platinum"],
+      enum: ["Morning", "Evening", "Free pass"],
       required: true,
     },
     password: {
