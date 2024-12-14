@@ -2,10 +2,12 @@ const Admin = require("../models/Admin");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcryptjs");
+const AdminLog = require("../models/AdminLog");
+const { getClientIp, getLocationByIp } = require("../config/locationHelper");
 
 const generateToken = (admin) => {
   return jwt.sign(
-    { id: admin._id, email: admin.email },
+    { id: admin._id, email: admin.email, role: admin.role },
     process.env.JWT_SECRET,
     { expiresIn: "30d" }
   );
@@ -20,6 +22,7 @@ exports.signup = async (req, res) => {
     if (adminExists) {
       return res.status(400).json({ message: "Email already registered" });
     }
+    const role = email === process.env.OWNER_EMAIL ? "owner" : "admin";
 
     const admin = await Admin.create({
       username,
@@ -28,15 +31,31 @@ exports.signup = async (req, res) => {
       gymName,
       gymAddress,
       gymType,
+      role,
     });
 
+    const ipAddress = getClientIp(req);
+    const location = await getLocationByIp(ipAddress);
+    console.log("locationandIpAdress", location, ipAddress);
+
     const token = generateToken(admin);
+
+    // Log sign-up activity
+    await AdminLog.create({
+      adminId: admin._id,
+      action: "sign-up",
+      ipAddress,
+      location,
+      deviceInfo: req.headers["user-agent"],
+      timestamp: new Date(),
+    });
 
     res.status(201).json({
       _id: admin._id,
       username: admin.username,
       email: admin.email,
       gymName: admin.gymName,
+      role: admin.role,
       token,
     });
   } catch (error) {
@@ -58,13 +77,27 @@ exports.signin = async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    const ipAddress = getClientIp(req);
+    const location = await getLocationByIp(ipAddress);
+
     const token = generateToken(admin);
+
+    // Log sign-in activity
+    await AdminLog.create({
+      adminId: admin._id,
+      action: "sign-in",
+      ipAddress,
+      location,
+      deviceInfo: req.headers["user-agent"],
+      timestamp: new Date(),
+    });
 
     res.json({
       _id: admin._id,
       username: admin.username,
       email: admin.email,
       gymName: admin.gymName,
+      role: admin.role,
       token,
     });
   } catch (error) {

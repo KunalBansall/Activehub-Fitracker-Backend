@@ -7,13 +7,19 @@ const { authenticateAdmin } = require("../middleware/auth"); // Import the middl
 
 // Validation middleware
 const memberValidation = [
-    body("name").notEmpty().withMessage("Name is required"),
-    body("email").isEmail().withMessage("Invalid email"),
-    body("phoneNumber").matches(/^\+?[\d\s-]+$/).withMessage("Invalid phone number"),
-    body("slot").isIn(["Morning", "Evening", "Free pass"]).withMessage("Invalid slot"),
-    body("durationMonths").isInt({ min: 1, max: 60 }).withMessage("Invalid duration"),
-    body("fees").isFloat({ min: 0 }).withMessage("Invalid fees"),
-    body("feeStatus").isIn(["paid", "due"]).withMessage("Invalid fee status"),
+  body("name").notEmpty().withMessage("Name is required"),
+  body("email").isEmail().withMessage("Invalid email"),
+  body("phoneNumber")
+    .matches(/^\+?[\d\s-]+$/)
+    .withMessage("Invalid phone number"),
+  body("slot")
+    .isIn(["Morning", "Evening", "Free Pass"])
+    .withMessage("Invalid slot"),
+  body("durationMonths")
+    .isInt({ min: 1, max: 60 })
+    .withMessage("Invalid duration"),
+  body("fees").isFloat({ min: 0 }).withMessage("Invalid fees"),
+  body("feeStatus").isIn(["paid", "due"]).withMessage("Invalid fee status"),
 ];
 
 // Apply admin authentication middleware to all routes

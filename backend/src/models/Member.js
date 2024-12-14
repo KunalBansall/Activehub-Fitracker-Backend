@@ -20,7 +20,7 @@ const memberSchema = new mongoose.Schema(
     phoneNumber: {
       type: String,
       required: true,
-      unique:true,
+      unique: true,
       match: /^\+?[\d\s-]+$/,
     },
     weight: {
@@ -73,20 +73,17 @@ const memberSchema = new mongoose.Schema(
     },
     slot: {
       type: String,
-      enum: ["Morning", "Evening", "Free pass"],
+      enum: ["Morning", "Evening", "Free Pass"],
       required: true,
     },
     password: {
-      // New field for password
       type: String,
       required: false,
     },
     resetToken: {
-      // New field for reset token
       type: String,
     },
     resetTokenExpiration: {
-      // New field for token expiration
       type: Date,
     },
   },

@@ -22,17 +22,22 @@ const allowedOrigins = [
   "http://localhost:5173",
 ];
 
+// app.use(
+//   cors({
+//     origin: function (origin, callback) {
+//       // Reject requests without an origin or from disallowed origins
+//       if (!origin || !allowedOrigins.includes(origin)) {
+//         return callback(new Error("Not allowed by CORS"));
+//       }
+//       // Allow requests from allowed origins
+//       return callback(null, true);
+//     },
+//     credentials: true, // Allow cookies or credentials if needed
+//   })
+// );
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Reject requests without an origin or from disallowed origins
-      if (!origin || !allowedOrigins.includes(origin)) {
-        return callback(new Error("Not allowed by CORS"));
-      }
-      // Allow requests from allowed origins
-      return callback(null, true);
-    },
-    credentials: true, // Allow cookies or credentials if needed
+    origin: "*",
   })
 );
 

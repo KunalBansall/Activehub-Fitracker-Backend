@@ -37,7 +37,12 @@ const adminSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: ['Fitness Center', 'CrossFit Box', 'Yoga Studio', 'Martial Arts', 'Other']
-  }
+  },
+  role: {
+    type: String,
+    enum: ["admin", "owner"],
+    default: "admin",  // Default role is "admin"
+  },
 }, {
   timestamps: true
 });
