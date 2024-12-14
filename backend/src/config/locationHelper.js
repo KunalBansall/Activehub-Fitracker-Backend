@@ -9,9 +9,8 @@ const getClientIp = (req) => {
     "IP Not Found"
   ).replace(/^::ffff:/, ""); // Remove IPv6 prefix if present
 };
-
 const getLocationByIp = async (ip) => {
-  if (ip === "::1") {
+  if (ip === "::1" || ip.startsWith("127.")) {
     return {
       city: "Localhost",
       region: "Local",
@@ -21,8 +20,12 @@ const getLocationByIp = async (ip) => {
     };
   }
 
+  // If there are multiple IPs in the header, take the first one (public IP)
+
+  const ipArray = ip.split(",")[0].trim();
+
   try {
-    const response = await axios.get(`http://ip-api.com/json/${ip}`);
+    const response = await axios.get(`http://ip-api.com/json/${ipArray}`);
     const { city, regionName, country, lat, lon } = response.data;
     return { city, region: regionName, country, lat, lon };
   } catch (error) {
