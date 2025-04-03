@@ -16,8 +16,14 @@ const memberValidation = [
     .isIn(["Morning", "Evening", "Free Pass"])
     .withMessage("Invalid slot"),
   body("durationMonths")
+    .optional()
     .isInt({ min: 1, max: 60 })
     .withMessage("Invalid duration"),
+  body("membershipEndDate")
+    .notEmpty()
+    .withMessage("Membership end date is required")
+    .isISO8601()
+    .withMessage("Invalid date format for membership end date"),
   body("fees").isFloat({ min: 0 }).withMessage("Invalid fees"),
   body("feeStatus").isIn(["paid", "due"]).withMessage("Invalid fee status"),
 ];

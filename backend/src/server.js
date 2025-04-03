@@ -20,26 +20,31 @@ connectDB();
 const allowedOrigins = [
   "https://activehub-fitracker.onrender.com",
   "http://localhost:5173",
+  "http://localhost:3000",
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Reject requests without an origin or from disallowed origins
-      if (!origin || !allowedOrigins.includes(origin)) {
-        return callback(new Error("Not allowed by CORS"));
-      }
-      // Allow requests from allowed origins
-      return callback(null, true);
-    },
-    credentials: true, // Allow cookies or credentials if needed
-  })
-);
+
+
+
+
 // app.use(
 //   cors({
-//     origin: "*",
+//     origin: function (origin, callback) {
+//       // Reject requests without an origin or from disallowed origins
+//       if (!origin || !allowedOrigins.includes(origin)) {
+//         return callback(new Error("Not allowed by CORS"));
+//       }
+//       // Allow requests from allowed origins
+//       return callback(null, true);
+//     },
+//     credentials: true, // Allow cookies or credentials if needed
 //   })
 // );
+app.use(
+  cors({
+    origin: "*",
+  })
+);
 
 app.use(cors());
 app.use(morgan("dev"));

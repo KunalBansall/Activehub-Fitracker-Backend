@@ -109,7 +109,7 @@ exports.createMember = async (req, res) => {
 
   try {
     // Check for duplicates in the same gym
-    const { email, phoneNumber, durationMonths } = req.body;
+    const { email, phoneNumber, membershipEndDate } = req.body;
 
     const existingMember = await Member.findOne({
       gymId: adminGymId,
@@ -126,38 +126,31 @@ exports.createMember = async (req, res) => {
       });
     }
 
-    // Set membershipStartDate to the current date if not provided
+    // Set membershipStartDate to the current date
     const membershipStartDate = new Date();
-
-    // Calculate membershipEndDate (adding months to membershipStartDate)
-    const endDate = new Date(membershipStartDate);
-    endDate.setMonth(endDate.getMonth() + durationMonths); // Add the number of months to start date
-
-    // Ensure the calculated membershipEndDate is valid
+    
+    // Parse the end date from the request
+    const endDate = new Date(membershipEndDate);
+    
+    // Ensure the provided membershipEndDate is valid
     if (isNaN(endDate.getTime())) {
       return res.status(400).json({ message: "Invalid membership end date." });
     }
+    
+    // Calculate durationMonths based on the difference between start and end dates
+    const diffTime = Math.abs(endDate - membershipStartDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const durationMonths = Math.ceil(diffDays / 30); // Approximate months
 
-    // Log for debugging
-    // console.log(`Start Date: ${membershipStartDate}, End Date: ${endDate}`);
-
-    // Generate password reset token (valid for 24 hours)
-    // const resetToken = crypto.randomBytes(20).toString("hex");
-    // const resetToken = jwt.sign(
-    //   { id: member._id }, // payload
-    //   process.env.JWT_SECRET, // secret
-    //   { expiresIn: "24h" } // token validity
-    // );
-
-    // const resetTokenExpiration = moment().add(1, "days").toDate(); // Expire in 1 day
-
-    // Create a new member with the calculated membershipEndDate and reset token info
+    // Create a new member with the provided membershipEndDate and calculated durationMonths
     const member = await Member.create({
       ...req.body,
       gymId: adminGymId,
-      membershipStartDate, // Use current date for membershipStartDate
+      membershipStartDate,
       membershipEndDate: endDate,
+      durationMonths,
     });
+    
     const resetToken = jwt.sign(
       { id: member._id }, // payload
       process.env.JWT_SECRET, // secret
@@ -270,6 +263,7 @@ exports.createMember = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+
 // Update Member (with Data Isolation)
 exports.updateMember = async (req, res) => {
   const adminGymId = req.admin._id;
@@ -286,8 +280,27 @@ exports.updateMember = async (req, res) => {
 
     const updates = { ...req.body };
 
-    // Update membership dates only when durationMonths is provided
-    if (req.body.durationMonths) {
+    // Update membership dates if membershipEndDate is provided
+    if (req.body.membershipEndDate) {
+      const endDate = new Date(req.body.membershipEndDate);
+      
+      // Ensure the provided membershipEndDate is valid
+      if (isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: "Invalid membership end date" });
+      }
+      
+      // Use current membershipStartDate or create a new one if extending membership
+      const startDate = member.membershipStartDate || new Date();
+      
+      // Calculate durationMonths based on the difference between start and end dates
+      const diffTime = Math.abs(endDate - startDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const durationMonths = Math.ceil(diffDays / 30); // Approximate months
+      
+      updates.membershipEndDate = endDate;
+      updates.durationMonths = durationMonths;
+    } else if (req.body.durationMonths) {
+      // Fallback for legacy code that might still use durationMonths
       const durationMonths = parseInt(req.body.durationMonths, 10);
       if (isNaN(durationMonths) || durationMonths <= 0) {
         return res.status(400).json({ message: "Invalid durationMonths value" });
@@ -299,10 +312,6 @@ exports.updateMember = async (req, res) => {
 
       updates.membershipStartDate = newStartDate;
       updates.membershipEndDate = newEndDate;
-    } else {
-      // Prevent accidental update of membership dates
-      delete updates.membershipStartDate;
-      delete updates.membershipEndDate;
     }
 
     const updatedMember = await Member.findByIdAndUpdate(

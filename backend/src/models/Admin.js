@@ -1,6 +1,17 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const gymPhotoSchema = new mongoose.Schema({
+  url: {
+    type: String,
+    required: true
+  },
+  publicId: {
+    type: String,
+    required: true
+  }
+}, { _id: true });
+
 const adminSchema = new mongoose.Schema({
   username: {
     type: String,
@@ -43,6 +54,13 @@ const adminSchema = new mongoose.Schema({
     enum: ["admin", "owner"],
     default: "admin",  // Default role is "admin"
   },
+  profilePhotoUrl: {
+    type: String,
+  },
+  profilePhotoId: {
+    type: String,
+  },
+  photos: [gymPhotoSchema]
 }, {
   timestamps: true
 });
