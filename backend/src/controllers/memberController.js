@@ -4,6 +4,7 @@ const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const moment = require("moment");
 const jwt = require("jsonwebtoken");
+const { sendEmail } = require("../services/emailService");
 
 // Get All Members (with Last Check-In and Data Isolation)
 exports.getAllMembers = async (req, res) => {
@@ -164,7 +165,7 @@ exports.createMember = async (req, res) => {
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        pass: process.env.EMAIL_PASSWORD,
       },
     });
 
@@ -348,15 +349,6 @@ exports.deleteMember = async (req, res) => {
   }
 };
 
-// Set up Nodemailer transporter
-const transporter = nodemailer.createTransport({
-  service: "gmail", // Replace with your email provider
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // Use your email password or an App Password for security
-  },
-});
-
 // Controller function to send membership renewal reminder
 exports.sendRenewalReminder = async (req, res) => {
   const { memberId } = req.body;
@@ -376,34 +368,32 @@ exports.sendRenewalReminder = async (req, res) => {
 
     // Send reminder only if membership is near expiration
     if (daysRemaining <= 10) {
-      // Send email with Nodemailer
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: member.email,
-        subject: "Membership Renewal Reminder",
-        html: `
-          <html>
-            <body style="font-family: Arial, sans-serif; background-color: #f8f9fa; color: #333;">
-              <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
-                <h2 style="color: #1D4ED8; text-align: center;">Membership Renewal Reminder</h2>
-                <p style="font-size: 16px;">Dear <strong>${
-                  member.name
-                }</strong>,</p>
-                <p style="font-size: 16px;">We hope you're enjoying your time at our gym! We wanted to remind you that your membership will expire on <strong>${membershipEndDate.toDateString()}</strong>.</p>
-                <p style="font-size: 16px; font-weight: bold; color: #e63946;">Don't let your membership lapse! Renew today to continue enjoying all the benefits of being a member of our gym.</p>
-                <div style="text-align: center; margin-top: 20px;">
-                  <a href="https://activehub-fitracker.onrender.com/" style="background-color: #1D4ED8; color: white; padding: 10px 20px; font-size: 16px; text-decoration: none; border-radius: 4px;">Renew Your Membership</a>
-                </div>
-                <p style="font-size: 16px; margin-top: 30px;">If you have any questions or need assistance with your renewal, feel free to contact us at <strong>activehubfitracker.com</strong>.</p>
-                <p style="font-size: 16px; color: #6c757d;">Thank you for being a valued member of our gym!</p>
-                <p style="font-size: 14px; color: #6c757d; text-align: center;">&copy; ${new Date().getFullYear()} ActiveHub Fitracker. All rights reserved.</p>
+      // Create email content
+      const emailContent = `
+        <html>
+          <body style="font-family: Arial, sans-serif; background-color: #f8f9fa; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+              <h2 style="color: #1D4ED8; text-align: center;">Membership Renewal Reminder</h2>
+              <p style="font-size: 16px;">Dear <strong>${member.name}</strong>,</p>
+              <p style="font-size: 16px;">We hope you're enjoying your time at our gym! We wanted to remind you that your membership will expire on <strong>${membershipEndDate.toDateString()}</strong>.</p>
+              <p style="font-size: 16px; font-weight: bold; color: #e63946;">Don't let your membership lapse! Renew today to continue enjoying all the benefits of being a member of our gym.</p>
+              <div style="text-align: center; margin-top: 20px;">
+                <a href="https://activehub-fitracker.onrender.com/" style="background-color: #1D4ED8; color: white; padding: 10px 20px; font-size: 16px; text-decoration: none; border-radius: 4px;">Renew Your Membership</a>
               </div>
-            </body>
-          </html>
-        `,
-      };
+              <p style="font-size: 16px; margin-top: 30px;">If you have any questions or need assistance with your renewal, feel free to contact us at <strong>activehubfitracker.com</strong>.</p>
+              <p style="font-size: 16px; color: #6c757d;">Thank you for being a valued member of our gym!</p>
+              <p style="font-size: 14px; color: #6c757d; text-align: center;">&copy; ${new Date().getFullYear()} ActiveHub Fitracker. All rights reserved.</p>
+            </div>
+          </body>
+        </html>
+      `;
 
-      await transporter.sendMail(mailOptions);
+      // Send email using the email service
+      await sendEmail(
+        member.email,
+        "Membership Renewal Reminder",
+        emailContent
+      );
 
       return res.status(200).json({ message: "Reminder sent successfully" });
     } else {

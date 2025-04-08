@@ -1,6 +1,7 @@
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const Member = require("../models/Member");
+const { sendOrderConfirmationEmail, sendAdminNotificationEmail, sendOrderStatusUpdateEmail } = require("../services/emailService");
 
 // Create a new order
 exports.createOrder = async (req, res) => {
@@ -139,48 +140,41 @@ exports.getAllOrders = async (req, res) => {
 // Update order status
 exports.updateOrderStatus = async (req, res) => {
   try {
-    const adminGymId = req.admin._id;
-    const { id } = req.params;
     const { status } = req.body;
+    const orderId = req.params.id;
 
     // Validate status
     const validStatuses = ["pending", "processing", "shipped", "delivered", "cancelled"];
-    if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({
-        message: "Invalid status. Must be one of: " + validStatuses.join(", "),
-      });
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
     }
 
-    // Find the order to ensure it belongs to the admin's gym
-    const order = await Order.findOne({
-      _id: id,
-      gymId: adminGymId,
-    });
-
+    // Find and update the order
+    const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    // Handle cancellation - restore inventory if order is cancelled
-    if (status === "cancelled" && order.status !== "cancelled") {
-      for (const item of order.products) {
-        await Product.findByIdAndUpdate(item.productId, {
-          $inc: { inventory: item.quantity, sold: -item.quantity },
-        });
+    // Store the old status for comparison
+    const oldStatus = order.status;
+
+    // Update the order status
+    order.status = status;
+    await order.save();
+
+    // If the status has changed, send email notification
+    if (oldStatus !== status) {
+      // Get member details for the email
+      const member = await Member.findById(order.memberId);
+      if (member) {
+        await sendOrderStatusUpdateEmail(order, member);
       }
     }
 
-    // Update the order status
-    const updatedOrder = await Order.findByIdAndUpdate(
-      id,
-      { $set: { status } },
-      { new: true }
-    );
-
-    res.status(200).json(updatedOrder);
+    res.json(order);
   } catch (error) {
     console.error("Error updating order status:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: "Error updating order status" });
   }
 };
 
@@ -225,79 +219,112 @@ exports.getMemberOrderById = async (req, res) => {
 // Create order as a member
 exports.createMemberOrder = async (req, res) => {
   try {
-    const memberId = req.member._id;
     const { products, totalAmount, paymentMethod, address, notes } = req.body;
+    const memberId = req.member._id;
 
     // Validate required fields
-    if (!products || !Array.isArray(products) || products.length === 0 || !totalAmount || !paymentMethod || !address) {
-      return res.status(400).json({
-        message: "Products array, total amount, payment method, and address are required",
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ 
+        message: "Products array is required and must be a non-empty array" 
       });
     }
 
-    // Get the member's gym ID
+    if (!totalAmount || isNaN(totalAmount) || totalAmount <= 0) {
+      return res.status(400).json({ 
+        message: "Valid total amount is required" 
+      });
+    }
+
+    if (!paymentMethod) {
+      return res.status(400).json({ 
+        message: "Payment method is required" 
+      });
+    }
+
+    if (!address) {
+      return res.status(400).json({ 
+        message: "Address is required" 
+      });
+    }
+
+    // Get member details
     const member = await Member.findById(memberId);
     if (!member) {
       return res.status(404).json({ message: "Member not found" });
     }
-    const gymId = member.gymId;
 
-    // Validate each product exists and update inventory
+    // Get gym ID from member
+    const gymId = member.gymId;
+    if (!gymId) {
+      return res.status(400).json({ message: "Member not associated with any gym" });
+    }
+
+    // Validate products
     for (const item of products) {
+      if (!item.productId || !item.quantity || item.quantity <= 0) {
+        return res.status(400).json({ 
+          message: "Each product must have a valid productId and quantity" 
+        });
+      }
+
+      // Find the product without checking isActive field
       const product = await Product.findOne({
         _id: item.productId,
-        gymId: gymId,
+        gymId
       });
-
+      
       if (!product) {
-        return res.status(404).json({
-          message: `Product not found: ${item.productId}`,
-        });
+        return res.status(400).json({ message: `Product ${item.productId} not found` });
       }
 
-      // Check if enough inventory is available
+      // Check if product is active (if the field exists)
+      if (product.isActive === false) {
+        return res.status(400).json({ message: `Product ${item.productId} is inactive` });
+      }
+
+      // Check if there's enough inventory
       if (product.inventory < item.quantity) {
-        return res.status(400).json({
-          message: `Not enough inventory for ${product.name}. Available: ${product.inventory}`,
+        return res.status(400).json({ 
+          message: `Not enough inventory for ${product.name}. Available: ${product.inventory}` 
         });
       }
-
-      // Update inventory and increment sold count
-      await Product.findByIdAndUpdate(item.productId, {
-        $inc: { inventory: -item.quantity, sold: item.quantity },
-      });
     }
 
-    // Validate total amount matches sum of product prices
-    const calculatedTotal = products.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-
-    if (Math.abs(calculatedTotal - totalAmount) > 0.01) {
-      return res.status(400).json({
-        message: "Total amount does not match sum of product prices",
-        calculated: calculatedTotal,
-        provided: totalAmount,
-      });
-    }
-
-    // Create the order
-    const newOrder = new Order({
-      gymId: gymId,
-      memberId: memberId,
+    // Create order
+    const order = new Order({
+      memberId,
+      gymId,
       products,
       totalAmount,
+      status: "pending",
       paymentMethod,
+      paymentStatus: "pending",
       address,
-      notes,
+      notes: notes || ""
     });
 
-    await newOrder.save();
-    res.status(201).json(newOrder);
+    await order.save();
+
+    // Update inventory for all products
+    for (const item of products) {
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { inventory: -item.quantity, sold: item.quantity }
+      });
+    }
+
+    // Send email notifications
+    await Promise.all([
+      sendOrderConfirmationEmail(order, member),
+      sendAdminNotificationEmail(order, member)
+    ]);
+
+    res.status(201).json({
+      message: "Order created successfully",
+      order
+    });
   } catch (error) {
     console.error("Error creating order:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: "Error creating order", error: error.message });
   }
 };
 
