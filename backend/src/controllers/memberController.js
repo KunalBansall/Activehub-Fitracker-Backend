@@ -172,79 +172,79 @@ exports.createMember = async (req, res) => {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: member.email,
-      subject: `Welcome to ${req.admin.gymName || "our Gym"}`,
+      subject: `Welcome to ${req.admin.gymName || "our Gym"} - Set Your Password`,
       html: `
-        <html>
-  <body style="font-family: Arial, sans-serif; background-color: #f8f9fa; color: #333; margin: 0; padding: 0;">
-    <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
-      
-      <!-- Header -->
-      <div style="text-align: center; padding-bottom: 20px;">
-        <h2 style="color: #1D4ED8; font-size: 24px; font-weight: bold; margin: 0;">Welcome to ${
-          req.admin.gymName || "Our Gym"
-        }</h2>
-      </div>
-      
-      <!-- Greeting & Introduction -->
-      <p style="font-size: 16px; line-height: 1.5; color: #333;">
-        Dear <strong>${member.name}</strong>,
-      </p>
-      <p style="font-size: 16px; line-height: 1.5; color: #333;">
-        We are thrilled to have you join <strong>${
-          req.admin.gymName || "our gym"
-        }</strong>! 🎉
-      </p>
-      <!-- Membership Validity Info -->
-<p style="font-size: 16px; line-height: 1.5; color: #333;">
-  Your membership is valid from <strong>${membershipStartDate.toDateString()}</strong>
-  to <strong>${endDate.toDateString()}</strong>.
-</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <!-- Header with Gym Logo/Name -->
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin-bottom: 10px;">Welcome to ${req.admin.gymName || "Our Gym"}!</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Dear ${member.name},</p>
+          </div>
 
-      
-      <!-- Instructions -->
-      <p style="font-size: 16px; line-height: 1.5; color: #333;">
-        To get started, please set your password by clicking the link below. This will help you manage your gym profile, track your progress, and enjoy all the features we offer.
-      </p>
-      
-      <!-- Password Reset Link -->
-      <div style="text-align: center; margin-top: 20px;">
-        <a href="${resetPasswordLink}" 
-           style="background-color: #1D4ED8; color: white; padding: 12px 25px; font-size: 16px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
-           Set Your Password
-        </a>
-      </div>
-      
-      <!-- Additional Info -->
-      <p style="font-size: 16px; line-height: 1.5; color: #333; margin-top: 30px;">
-        Once your password is set, you will be able to access all features including:
-      </p>
-      <ul style="font-size: 16px; line-height: 1.5; color: #333; margin-left: 20px; list-style-type: disc;">
-        <li>View your gym profile and details</li>
-        <li>Track your attendance and workouts</li>
-        <li>Access personalized exercise routines</li>
-        <li>Connect with your trainer and much more!</li>
-      </ul>
-      
-      <!-- Contact Info -->
-      <p style="font-size: 16px; line-height: 1.5; color: #333; margin-top: 30px;">
-        If you have any questions or need assistance, don't hesitate to reach out to us. We're here to help!
-      </p>
-      
-      <!-- Footer -->
-      <p style="font-size: 16px; color: #6c757d; text-align: center; margin-top: 30px;">
-        Best regards,<br>
-        The <strong>${req.admin.gymName || "Gym"}</strong> Team
-      </p>
-      
-      <!-- Copyright -->
-      <p style="font-size: 14px; color: #6c757d; text-align: center; margin-top: 20px;">
-        &copy; ${new Date().getFullYear()} ActiveHub Fitracker. All rights reserved.
-      </p>
-      
-    </div>
-  </body>
-</html>
+          <!-- Main Content -->
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 30px;">
+            <p style="color: #34495e; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              We're excited to have you join our fitness community! Your membership is valid from 
+              <strong>${membershipStartDate.toDateString()}</strong> to 
+              <strong>${endDate.toDateString()}</strong>.
+            </p>
 
+            <p style="color: #34495e; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              To get started, please set your password by clicking the button below. This will help you:
+            </p>
+
+            <ul style="color: #34495e; font-size: 16px; line-height: 1.6; margin-bottom: 20px; padding-left: 20px;">
+              <li>Access your personalized dashboard</li>
+              <li>Track your workouts and progress</li>
+              <li>View your membership details</li>
+              <li>Connect with trainers and other members</li>
+            </ul>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetPasswordLink}" 
+                 style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; font-size: 16px;">
+                Set Your Password
+              </a>
+            </div>
+
+            <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 20px;">
+              If the button doesn't work, copy and paste this link into your browser:
+            </p>
+            <p style="color: #3498db; word-break: break-all; font-size: 14px; background-color: #f1f1f1; padding: 10px; border-radius: 4px;">
+              ${resetPasswordLink}
+            </p>
+          </div>
+
+          <!-- Features Section -->
+          <div style="margin-bottom: 30px;">
+            <h3 style="color: #2c3e50; font-size: 18px; margin-bottom: 15px;">What You Can Do:</h3>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
+                <p style="color: #34495e; font-size: 14px; margin: 0;">Track Workouts</p>
+              </div>
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
+                <p style="color: #34495e; font-size: 14px; margin: 0;">View Progress</p>
+              </div>
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
+                <p style="color: #34495e; font-size: 14px; margin: 0;">Book Classes</p>
+              </div>
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
+                <p style="color: #34495e; font-size: 14px; margin: 0;">Connect with Trainers</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+            <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
+              If you have any questions, feel free to contact us at ${req.admin.email || "support@activehub.com"}
+            </p>
+            <p style="color: #7f8c8d; font-size: 14px;">
+              Best regards,<br>
+              <strong style="color: #2c3e50;">${req.admin.gymName || "ActiveHub"} Team</strong>
+            </p>
+          </div>
+        </div>
       `,
     };
 
@@ -370,22 +370,63 @@ exports.sendRenewalReminder = async (req, res) => {
     if (daysRemaining <= 10) {
       // Create email content
       const emailContent = `
-        <html>
-          <body style="font-family: Arial, sans-serif; background-color: #f8f9fa; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
-              <h2 style="color: #1D4ED8; text-align: center;">Membership Renewal Reminder</h2>
-              <p style="font-size: 16px;">Dear <strong>${member.name}</strong>,</p>
-              <p style="font-size: 16px;">We hope you're enjoying your time at our gym! We wanted to remind you that your membership will expire on <strong>${membershipEndDate.toDateString()}</strong>.</p>
-              <p style="font-size: 16px; font-weight: bold; color: #e63946;">Don't let your membership lapse! Renew today to continue enjoying all the benefits of being a member of our gym.</p>
-              <div style="text-align: center; margin-top: 20px;">
-                <a href="https://activehub-fitracker.onrender.com/" style="background-color: #1D4ED8; color: white; padding: 10px 20px; font-size: 16px; text-decoration: none; border-radius: 4px;">Renew Your Membership</a>
-              </div>
-              <p style="font-size: 16px; margin-top: 30px;">If you have any questions or need assistance with your renewal, feel free to contact us at <strong>activehubfitracker.com</strong>.</p>
-              <p style="font-size: 16px; color: #6c757d;">Thank you for being a valued member of our gym!</p>
-              <p style="font-size: 14px; color: #6c757d; text-align: center;">&copy; ${new Date().getFullYear()} ActiveHub Fitracker. All rights reserved.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin-bottom: 10px;">Membership Renewal Reminder</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Dear ${member.name},</p>
+          </div>
+
+          <!-- Main Content -->
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 30px;">
+            <p style="color: #34495e; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              We hope you're enjoying your fitness journey with us! Your current membership will expire on 
+              <strong style="color: #e74c3c;">${membershipEndDate.toDateString()}</strong>.
+            </p>
+
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+              <p style="color: #856404; font-size: 16px; margin: 0;">
+                <strong>Only ${daysRemaining} days left</strong> to renew your membership and continue enjoying all our facilities!
+              </p>
             </div>
-          </body>
-        </html>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://activehub-fitracker.onrender.com/" 
+                 style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; font-size: 16px;">
+                Renew Your Membership
+              </a>
+            </div>
+
+            <p style="color: #34495e; font-size: 16px; line-height: 1.6;">
+              Renewing your membership ensures uninterrupted access to:
+            </p>
+            <ul style="color: #34495e; font-size: 16px; line-height: 1.6; padding-left: 20px;">
+              <li>All gym facilities and equipment</li>
+              <li>Group classes and personal training sessions</li>
+              <li>Member-exclusive discounts and offers</li>
+              <li>Progress tracking and workout plans</li>
+            </ul>
+          </div>
+
+          <!-- Special Offer Section -->
+          <div style="background-color: #e8f4f8; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <h3 style="color: #2c3e50; font-size: 18px; margin-bottom: 15px;">Special Renewal Offer!</h3>
+            <p style="color: #34495e; font-size: 16px; line-height: 1.6;">
+              Renew before your membership expires and get <strong>10% off</strong> on your next membership period!
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div style="border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+            <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
+              Need help with renewal? Contact us at support@activehub.com
+            </p>
+            <p style="color: #7f8c8d; font-size: 14px;">
+              Best regards,<br>
+              <strong style="color: #2c3e50;">ActiveHub Team</strong>
+            </p>
+          </div>
+        </div>
       `;
 
       // Send email using the email service

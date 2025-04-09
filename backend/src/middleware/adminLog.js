@@ -11,7 +11,7 @@ exports.verifyOwner = (req, res, next) => {
 
     if (decoded.role !== "owner") {
       // Check if the role is 'owner'
-      return resa
+      return res
         .status(403)
         .json({ message: "Access forbidden: Not the owner" });
     }

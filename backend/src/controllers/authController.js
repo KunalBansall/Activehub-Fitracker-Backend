@@ -150,18 +150,48 @@ Thank you,
 ${gymName} Support Team`,
 
       html: `
-        <p>Hi <strong>${username}</strong>,</p>
-        <p>We received a request to reset your password. Click the button below to reset it:</p>
-        <p style="text-align: center; margin: 20px 0;">
-          <a href="${process.env.FRONTEND_URL}/reset-password/${user._id}/${token}" 
-             style="background-color: #007BFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-            Reset Password
-          </a>
-        </p>
-        <p>If the button doesn't work, you can copy and paste the following link into your browser:</p>
-        <p>${process.env.FRONTEND_URL}/reset-password/${user._id}/${token}</p>
-        <p>If you did not request this, please ignore this email or <a href="https://activehub-fitracker.onrender.com/">contact our support team</a>.</p>
-        <p>Best regards,<br>${gymName} Support Team</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin-bottom: 10px;">Password Reset Request</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Hello ${username},</p>
+          </div>
+
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 30px;">
+            <p style="color: #34495e; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              We received a request to reset your password for your ${gymName} account. Click the button below to reset it:
+            </p>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL}/reset-password/${user._id}/${token}" 
+                 style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; font-size: 16px;">
+                Reset Password
+              </a>
+            </div>
+
+            <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 20px;">
+              If the button doesn't work, copy and paste this link into your browser:
+            </p>
+            <p style="color: #3498db; word-break: break-all; font-size: 14px; background-color: #f1f1f1; padding: 10px; border-radius: 4px;">
+              ${process.env.FRONTEND_URL}/reset-password/${user._id}/${token}
+            </p>
+          </div>
+
+          <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px;">
+            <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
+              If you didn't request this password reset, you can safely ignore this email.
+            </p>
+            <p style="color: #7f8c8d; font-size: 14px;">
+              For security reasons, this link will expire in 24 hours.
+            </p>
+          </div>
+
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
+            <p style="color: #7f8c8d; font-size: 14px;">
+              Best regards,<br>
+              <strong style="color: #2c3e50;">${gymName} Support Team</strong>
+            </p>
+          </div>
+        </div>
       `,
     };
 
