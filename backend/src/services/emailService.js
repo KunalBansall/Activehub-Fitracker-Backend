@@ -45,13 +45,13 @@ const orderConfirmationTemplate = (order, member) => {
             <li style="margin-bottom: 10px; padding: 10px; background-color: white; border-radius: 3px;">
               <strong>${item.name}</strong><br>
               Quantity: ${item.quantity}<br>
-              Price: $${item.price}
+              Price: ₹${item.price}
             </li>
           `).join('')}
         </ul>
         
         <p style="font-size: 18px; font-weight: bold; margin-top: 20px;">
-          Total Amount: $${order.totalAmount}
+          Total Amount: ₹${order.totalAmount}
         </p>
       </div>
       
@@ -93,13 +93,13 @@ const adminNotificationTemplate = (order, member, admin) => {
             <li style="margin-bottom: 10px; padding: 10px; background-color: white; border-radius: 3px;">
               <strong>${item.name}</strong><br>
               Quantity: ${item.quantity}<br>
-              Price: $${item.price}
+              Price: ₹${item.price}
             </li>
           `).join('')}
         </ul>
         
         <p style="font-size: 18px; font-weight: bold; margin-top: 20px;">
-          Total Amount: $${order.totalAmount}
+          Total Amount: ₹${order.totalAmount}
         </p>
       </div>
       
@@ -132,13 +132,13 @@ const orderStatusUpdateTemplate = (order, member) => {
             <li style="margin-bottom: 10px; padding: 10px; background-color: white; border-radius: 3px;">
               <strong>${item.name}</strong><br>
               Quantity: ${item.quantity}<br>
-              Price: $${item.price}
+              Price: ₹${item.price}
             </li>
           `).join('')}
         </ul>
         
         <p style="font-size: 18px; font-weight: bold; margin-top: 20px;">
-          Total Amount: $${order.totalAmount}
+          Total Amount: ₹${order.totalAmount}
         </p>
       </div>
       
