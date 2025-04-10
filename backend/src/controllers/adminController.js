@@ -208,3 +208,22 @@ exports.updateProfilePhoto = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// Get All Gyms
+exports.getAllGyms = async (req, res) => {
+  try {
+    // Only retrieve the needed fields for each gym
+    const gyms = await Admin.find({}, 'gymName _id').sort({ gymName: 1 });
+    
+    // Format the response
+    const formattedGyms = gyms.map(gym => ({
+      _id: gym._id,
+      gymName: gym.gymName
+    }));
+    
+    return res.status(200).json({ gyms: formattedGyms });
+  } catch (error) {
+    console.error('Error fetching gyms:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};

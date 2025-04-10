@@ -5,7 +5,8 @@ const {
   updateAdminProfile,
   addPhoto,
   removePhoto,
-  updateProfilePhoto
+  updateProfilePhoto,
+  getAllGyms
 } = require("../controllers/adminController");
 const { authenticateAdmin } = require("../middleware/auth"); // Middleware for authentication
 
@@ -25,5 +26,8 @@ router.delete("/photos/:photoId", authenticateAdmin, removePhoto);
 
 // PUT /profile-photo - Update the admin's profile photo
 router.put("/profile-photo", authenticateAdmin, updateProfilePhoto);
+
+// GET /gyms - Get all gyms
+router.get("/gyms", authenticateAdmin, getAllGyms);
 
 module.exports = router;
