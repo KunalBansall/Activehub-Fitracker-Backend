@@ -12,7 +12,13 @@ const attendanceSchema = new mongoose.Schema({
     default: Date.now
   },
   exitTime: {
-    type: Date
+    type: Date,
+    default: null
+  },
+  autoCompleted: {
+    type: Boolean,
+    default: false,
+    description: 'Indicates if this session was automatically closed because of a new day check-in'
   }
 }, {
   timestamps: true

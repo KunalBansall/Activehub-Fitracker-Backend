@@ -237,7 +237,7 @@ exports.createMember = async (req, res) => {
           <!-- Footer -->
           <div style="border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
             <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
-              If you have any questions, feel free to contact us at ${req.admin.email || "support@activehub.com"}
+              If you have any questions, feel free to contact us at ${req.admin.email || "activehubfitracker@gmail.com"}
             </p>
             <p style="color: #7f8c8d; font-size: 14px;">
               Best regards,<br>
@@ -419,7 +419,7 @@ exports.sendRenewalReminder = async (req, res) => {
           <!-- Footer -->
           <div style="border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
             <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
-              Need help with renewal? Contact us at support@activehub.com
+              Need help with renewal? Contact us at activehubfitracker@gmail.com
             </p>
             <p style="color: #7f8c8d; font-size: 14px;">
               Best regards,<br>

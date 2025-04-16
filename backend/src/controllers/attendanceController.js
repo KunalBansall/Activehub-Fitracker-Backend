@@ -19,6 +19,41 @@ exports.recordEntry = async (req, res) => {
     });
 
     if (activeSession) {
+      // Check if the active session is from a previous day
+      const entryDate = new Date(activeSession.entryTime);
+      const today = new Date();
+      
+      if (entryDate.getDate() !== today.getDate() || 
+          entryDate.getMonth() !== today.getMonth() || 
+          entryDate.getFullYear() !== today.getFullYear()) {
+        
+        // This is a stale session from a previous day
+        // Set exit time to 11:59 PM of the entry date
+        const exitTime = new Date(entryDate);
+        exitTime.setHours(23, 59, 59, 999);
+        
+        // Close the previous session
+        activeSession.exitTime = exitTime;
+        activeSession.autoCompleted = true; // Flag to indicate this was automatically completed
+        await activeSession.save();
+        
+        // Now create a new session
+        const newAttendance = await Attendance.create({
+          memberId: member._id,
+          entryTime: new Date(),
+        });
+        
+        return res.json({
+          message: 'Entry recorded successfully (previous incomplete session was closed)',
+          attendance: newAttendance,
+          previousSession: {
+            closedAt: exitTime,
+            wasAutoCompleted: true
+          }
+        });
+      }
+      
+      // If it's from the same day, return the "already active" error
       return res.status(400).json({ 
         message: 'Session already active',
         details: `Member already checked in at ${new Date(activeSession.entryTime).toLocaleString()}` 
