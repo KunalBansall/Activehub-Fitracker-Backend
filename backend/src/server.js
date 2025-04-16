@@ -19,6 +19,9 @@ const publicProductRoutes = require("./routes/publicProducts");
 const orderRoutes = require("./routes/orders");
 const memberOrderRoutes = require("./routes/memberOrders");
 const adRoutes = require("./routes/ads");
+const announcementRoutes = require("./routes/announcements");
+const memberAnnouncementRoutes = require("./routes/memberAnnouncements");
+const publicAnnouncementRoutes = require("./routes/publicAnnouncements");
 
 const app = express();
 connectDB();
@@ -71,6 +74,9 @@ app.use("/api/public/products", publicProductRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/member/orders", memberOrderRoutes);
 app.use("/api/ads", adRoutes);
+app.use("/api/announcements", announcementRoutes);
+app.use("/api/member/announcements", memberAnnouncementRoutes);
+app.use("/api/public/announcements", publicAnnouncementRoutes);
 
 // Define a root route (optional)
 app.get("/", (req, res) => {
