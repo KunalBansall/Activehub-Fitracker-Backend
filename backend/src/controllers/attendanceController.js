@@ -12,13 +12,29 @@ exports.recordEntry = async (req, res) => {
       return res.status(404).json({ message: 'Member not found or unauthorized access' });
     }
 
-    // Create an attendance entry
+    // Check if member already has an active session
+    const activeSession = await Attendance.findOne({
+      memberId: member._id,
+      exitTime: null
+    });
+
+    if (activeSession) {
+      return res.status(400).json({ 
+        message: 'Session already active',
+        details: `Member already checked in at ${new Date(activeSession.entryTime).toLocaleString()}` 
+      });
+    }
+
+    // Create a new attendance entry
     const attendance = await Attendance.create({
       memberId: member._id,
       entryTime: new Date(),
     });
 
-    res.json(attendance);
+    res.json({
+      message: 'Entry recorded successfully',
+      attendance
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -42,14 +58,28 @@ exports.recordExit = async (req, res) => {
     }).sort({ entryTime: -1 });
 
     if (!attendance) {
-      return res.status(404).json({ message: 'No active entry found' });
+      return res.status(404).json({ 
+        message: 'No active session', 
+        details: 'Member must check in before checking out' 
+      });
     }
 
     // Update the exitTime
     attendance.exitTime = new Date();
     await attendance.save();
 
-    res.json(attendance);
+    // Calculate duration
+    const entryTime = new Date(attendance.entryTime);
+    const exitTime = new Date(attendance.exitTime);
+    const durationMs = exitTime - entryTime;
+    const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+    const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    res.json({
+      message: 'Exit recorded successfully',
+      attendance,
+      sessionDuration: `${durationHours}h ${durationMinutes}m`
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
