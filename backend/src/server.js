@@ -22,6 +22,7 @@ const adRoutes = require("./routes/ads");
 const announcementRoutes = require("./routes/announcements");
 const memberAnnouncementRoutes = require("./routes/memberAnnouncements");
 const publicAnnouncementRoutes = require("./routes/publicAnnouncements");
+const workoutRoutes = require("./routes/workouts");
 
 const app = express();
 connectDB();
@@ -77,6 +78,7 @@ app.use("/api/ads", adRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/member/announcements", memberAnnouncementRoutes);
 app.use("/api/public/announcements", publicAnnouncementRoutes);
+app.use("/api/workouts", workoutRoutes);
 
 // Define a root route (optional)
 app.get("/", (req, res) => {
