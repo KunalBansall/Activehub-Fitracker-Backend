@@ -118,6 +118,10 @@ const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    // Update the member's lastVisit timestamp
+    member.lastVisit = new Date();
+    await member.save();
+
     // Generate a JWT token for the member
     const token = jwt.sign({ id: member._id }, process.env.JWT_SECRET, {
       expiresIn: "30d",

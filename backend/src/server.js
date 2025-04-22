@@ -6,6 +6,7 @@ require("dotenv").config({
 });
 
 const connectDB = require("./config/database");
+const setupCronJobs = require('./cron');
 const authRoutes = require("./routes/auth");
 const memberRoutes = require("./routes/members");
 const attendanceRoutes = require("./routes/attendance");
@@ -23,9 +24,13 @@ const announcementRoutes = require("./routes/announcements");
 const memberAnnouncementRoutes = require("./routes/memberAnnouncements");
 const publicAnnouncementRoutes = require("./routes/publicAnnouncements");
 const workoutRoutes = require("./routes/workouts");
+const settingsRoutes = require("./routes/settings");
 
 const app = express();
 connectDB();
+
+// Initialize cron jobs after DB connection
+setupCronJobs();
 
 const allowedOrigins = [
   "https://activehub-fitracker.onrender.com",
@@ -79,6 +84,7 @@ app.use("/api/announcements", announcementRoutes);
 app.use("/api/member/announcements", memberAnnouncementRoutes);
 app.use("/api/public/announcements", publicAnnouncementRoutes);
 app.use("/api/workouts", workoutRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Define a root route (optional)
 app.get("/", (req, res) => {

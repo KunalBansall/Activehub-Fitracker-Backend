@@ -86,6 +86,14 @@ const memberSchema = new mongoose.Schema(
     resetTokenExpiration: {
       type: Date,
     },
+    lastVisit: {
+      type: Date,
+      default: Date.now
+    },
+    lastNotificationSent: {
+      type: Date,
+      default: null
+    }
   },
   {
     timestamps: true,

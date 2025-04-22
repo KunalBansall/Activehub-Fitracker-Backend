@@ -201,9 +201,91 @@ const sendOrderStatusUpdateEmail = async (order, member) => {
   }
 };
 
+const createTransporter = () => {
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
+};
+
+// Function to send general emails
+const sendGeneralEmail = async (to, subject, text, html) => {
+  try {
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to,
+      subject,
+      text,
+      html,
+    };
+    
+    return await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error("Email sending failed:", error);
+    throw error;
+  }
+};
+
+// Function specifically for inactivity notifications
+const sendInactivityNotification = async (member, gymName, message, senderEmail = null) => {
+  try {
+    // Replace placeholders in custom message
+    const personalizedMessage = message.replace(/{{name}}/g, member.name);
+    
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: senderEmail || process.env.EMAIL_USER,
+      to: member.email,
+      subject: `${gymName} - We miss you at the gym!`,
+      text: personalizedMessage,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin-bottom: 10px;">We Miss You!</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Dear ${member.name},</p>
+          </div>
+
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 30px;">
+            <p style="color: #34495e; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              ${personalizedMessage}
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL}/memberlogin" 
+                 style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; font-size: 16px;">
+                Visit Your Dashboard
+              </a>
+            </div>
+          </div>
+
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
+            <p style="color: #7f8c8d; font-size: 14px;">
+              Best regards,<br>
+              <strong style="color: #2c3e50;">${gymName} Team</strong>
+            </p>
+          </div>
+        </div>
+      `,
+    };
+    
+    return await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error(`Failed to send inactivity notification to ${member.email}:`, error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendEmail,
   sendOrderConfirmationEmail,
   sendAdminNotificationEmail,
-  sendOrderStatusUpdateEmail
+  sendOrderStatusUpdateEmail,
+  sendGeneralEmail,
+  sendInactivityNotification
 }; 

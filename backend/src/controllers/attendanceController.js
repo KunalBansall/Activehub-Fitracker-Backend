@@ -43,6 +43,10 @@ exports.recordEntry = async (req, res) => {
           entryTime: new Date(),
         });
         
+        // Update the member's lastVisit timestamp
+        member.lastVisit = new Date();
+        await member.save();
+        
         return res.json({
           message: 'Entry recorded successfully (previous incomplete session was closed)',
           attendance: newAttendance,
@@ -65,6 +69,10 @@ exports.recordEntry = async (req, res) => {
       memberId: member._id,
       entryTime: new Date(),
     });
+
+    // Update the member's lastVisit timestamp
+    member.lastVisit = new Date();
+    await member.save();
 
     res.json({
       message: 'Entry recorded successfully',
