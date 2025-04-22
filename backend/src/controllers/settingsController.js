@@ -34,7 +34,7 @@ exports.updateGymSettings = async (req, res) => {
       smartInactivityAlerts, 
       inactivityThresholdDays, 
       notificationCooldownDays,
-      customInactivityMessage 
+      customInactivityMessage
     } = req.body;
     
     // Validate input

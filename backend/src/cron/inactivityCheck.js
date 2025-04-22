@@ -1,43 +1,26 @@
 const Member = require('../models/Member');
 const Admin = require('../models/Admin');
 const GymSettings = require('../models/GymSettings');
-const { sendInactivityNotification } = require('../services/emailService');
+const notificationService = require('../services/notificationService');
 
 /**
- * Helper function to calculate threshold date excluding Sundays
+ * Helper function to calculate threshold date
  * @param {number} days - Number of days to go back
- * @returns {Date} - Date threshold excluding Sundays
+ * @returns {Date} - Date threshold
  */
-const calculateThresholdExcludingSundays = (days) => {
+const calculateThresholdDate = (days) => {
   const result = new Date();
-  let daysToGoBack = days;
-  
-  while (daysToGoBack > 0) {
-    result.setDate(result.getDate() - 1);
-    // Skip counting Sundays (0 = Sunday in JavaScript's getDay())
-    if (result.getDay() !== 0) {
-      daysToGoBack--;
-    }
-  }
-  
+  result.setDate(result.getDate() - days);
   return result;
 };
 
 /**
  * Cron job to check for inactive members and send notifications
  * Runs daily to find members who haven't visited in the configured timeframe
- * Skips processing on Sundays and excludes Sundays from inactivity calculations
  */
 const checkInactiveMembers = async () => {
   try {
     console.log('Starting inactive members check...');
-    
-    // Skip processing on Sundays
-    const today = new Date();
-    if (today.getDay() === 0) { // 0 = Sunday
-      console.log('Today is Sunday. Skipping inactivity check and notifications.');
-      return;
-    }
     
     // Get all gyms with smartInactivityAlerts enabled
     const activeGymSettings = await GymSettings.find({ smartInactivityAlerts: true });
@@ -73,11 +56,11 @@ const checkInactiveMembers = async () => {
       const notificationCooldown = gymSettings.notificationCooldownDays || 3;
       const customMessage = gymSettings.customInactivityMessage || "Hey {{name}}! We've missed you at the gym. Let's get back on track 💪";
       
-      // Calculate threshold dates, excluding Sundays
-      const inactivityDate = calculateThresholdExcludingSundays(inactivityThreshold);
-      const cooldownDate = calculateThresholdExcludingSundays(notificationCooldown);
+      // Calculate threshold dates
+      const inactivityDate = calculateThresholdDate(inactivityThreshold);
+      const cooldownDate = calculateThresholdDate(notificationCooldown);
       
-      console.log(`Checking for members who haven't visited since: ${inactivityDate.toISOString()} (excluding Sundays)`);
+      console.log(`Checking for members who haven't visited since: ${inactivityDate.toISOString()}`);
       
       // Find inactive members with no recent notifications
       const inactiveMembers = await Member.find({
@@ -108,27 +91,20 @@ const checkInactiveMembers = async () => {
         });
       }
       
-      // Send notifications to each inactive member
-      let successCount = 0;
-      let errorCount = 0;
-      
-      for (const member of inactiveMembers) {
+      // Use the notification service to send emails to inactive members
+      if (inactiveMembers.length > 0) {
         try {
-          await sendInactivityNotification(member, gymName, customMessage, senderEmail);
+          // Use notification service with custom message
+          const results = await notificationService.sendInactivityNotifications(inactiveMembers, {
+            name: gymName,
+            customMessage
+          });
           
-          // Update the lastNotificationSent timestamp
-          member.lastNotificationSent = new Date();
-          await member.save();
-          
-          successCount++;
-          console.log(`Successfully sent notification to ${member.name} (${member.email}) from ${senderEmail}`);
+          console.log(`Completed sending notifications for gym ${gymName}: ${results.filter(r => r.success).length} success, ${results.filter(r => !r.success).length} errors`);
         } catch (error) {
-          errorCount++;
-          console.error(`Failed to send notification to ${member.name} (${member.email}):`, error.message);
+          console.error(`Error sending notifications for gym ${gymName}:`, error);
         }
       }
-      
-      console.log(`Completed sending notifications for gym ${gymName}: ${successCount} success, ${errorCount} errors`);
     }
     
     console.log('Inactive members check completed');
