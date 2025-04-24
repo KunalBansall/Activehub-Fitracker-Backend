@@ -15,7 +15,12 @@ exports.getGymSettings = async (req, res) => {
         smartInactivityAlerts: false,
         inactivityThresholdDays: 2,
         notificationCooldownDays: 3,
-        customInactivityMessage: "Hey {{name}}! We've missed you at the gym. Let's get back on track 💪"
+        customInactivityMessage: "Hey {{name}}! We've missed you at the gym. Let's get back on track 💪",
+        expectedRevenue: 0,
+        monthlyRevenueGoal: 0,
+        revenueGoalAlerts: false,
+        enableMonthlyReports: false,
+        alertThresholdPercentage: 15
       });
     }
     
@@ -34,7 +39,12 @@ exports.updateGymSettings = async (req, res) => {
       smartInactivityAlerts, 
       inactivityThresholdDays, 
       notificationCooldownDays,
-      customInactivityMessage
+      customInactivityMessage,
+      expectedRevenue,
+      monthlyRevenueGoal,
+      revenueGoalAlerts,
+      enableMonthlyReports,
+      alertThresholdPercentage
     } = req.body;
     
     // Validate input
@@ -47,6 +57,18 @@ exports.updateGymSettings = async (req, res) => {
     if (notificationCooldownDays && (notificationCooldownDays < 1 || notificationCooldownDays > 14)) {
       return res.status(400).json({ 
         message: "Notification cooldown must be between 1 and 14 days" 
+      });
+    }
+
+    if (alertThresholdPercentage && (alertThresholdPercentage < 1 || alertThresholdPercentage > 50)) {
+      return res.status(400).json({ 
+        message: "Alert threshold percentage must be between 1 and 50 percent" 
+      });
+    }
+    
+    if (expectedRevenue && expectedRevenue < 0) {
+      return res.status(400).json({
+        message: "Expected revenue cannot be negative"
       });
     }
     
@@ -62,7 +84,12 @@ exports.updateGymSettings = async (req, res) => {
           smartInactivityAlerts: smartInactivityAlerts !== undefined ? smartInactivityAlerts : undefined,
           inactivityThresholdDays: inactivityThresholdDays !== undefined ? inactivityThresholdDays : undefined,
           notificationCooldownDays: notificationCooldownDays !== undefined ? notificationCooldownDays : undefined,
-          customInactivityMessage: customInactivityMessage !== undefined ? customInactivityMessage : undefined
+          customInactivityMessage: customInactivityMessage !== undefined ? customInactivityMessage : undefined,
+          expectedRevenue: expectedRevenue !== undefined ? expectedRevenue : undefined,
+          monthlyRevenueGoal: monthlyRevenueGoal !== undefined ? monthlyRevenueGoal : undefined,
+          revenueGoalAlerts: revenueGoalAlerts !== undefined ? revenueGoalAlerts : undefined,
+          enableMonthlyReports: enableMonthlyReports !== undefined ? enableMonthlyReports : undefined,
+          alertThresholdPercentage: alertThresholdPercentage !== undefined ? alertThresholdPercentage : undefined
         }
       },
       { new: true, upsert: true, omitUndefined: true }
@@ -76,7 +103,12 @@ exports.updateGymSettings = async (req, res) => {
       details: {
         smartInactivityAlerts: settings.smartInactivityAlerts,
         inactivityThresholdDays: settings.inactivityThresholdDays,
-        notificationCooldownDays: settings.notificationCooldownDays
+        notificationCooldownDays: settings.notificationCooldownDays,
+        expectedRevenue: settings.expectedRevenue,
+        monthlyRevenueGoal: settings.monthlyRevenueGoal,
+        revenueGoalAlerts: settings.revenueGoalAlerts,
+        enableMonthlyReports: settings.enableMonthlyReports,
+        alertThresholdPercentage: settings.alertThresholdPercentage
       },
       ipAddress: req.ip,
       deviceInfo: req.headers["user-agent"],

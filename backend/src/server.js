@@ -25,6 +25,7 @@ const memberAnnouncementRoutes = require("./routes/memberAnnouncements");
 const publicAnnouncementRoutes = require("./routes/publicAnnouncements");
 const workoutRoutes = require("./routes/workouts");
 const settingsRoutes = require("./routes/settings");
+const revenueRoutes = require("./routes/revenueRoutes");
 
 const app = express();
 connectDB();
@@ -85,6 +86,7 @@ app.use("/api/member/announcements", memberAnnouncementRoutes);
 app.use("/api/public/announcements", publicAnnouncementRoutes);
 app.use("/api/workouts", workoutRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/admin/revenue", revenueRoutes);
 
 // Define a root route (optional)
 app.get("/", (req, res) => {
