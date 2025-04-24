@@ -2,7 +2,11 @@ const Member = require('../models/Member');
 const Order = require('../models/Order');
 const GymSettings = require('../models/GymSettings');
 const MonthlyRevenue = require('../models/MonthlyRevenue');
-const { processGymMonthlyReport } = require('../services/monthlyRevenueService');
+const { 
+  processGymMonthlyReport, 
+  generateReportHtml, 
+  generatePdfReport 
+} = require('../services/monthlyRevenueService');
 
 /**
  * Get revenue overview for the admin dashboard

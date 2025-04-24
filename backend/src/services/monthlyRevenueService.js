@@ -4,7 +4,8 @@ const Order = require('../models/Order');
 const GymSettings = require('../models/GymSettings');
 const MonthlyRevenue = require('../models/MonthlyRevenue');
 const nodemailer = require('nodemailer');
-const puppeteer = require('puppeteer');
+const chromium = require('chrome-aws-lambda');
+const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
@@ -342,12 +343,28 @@ const generateReportHtml = (data) => {
  * @returns {Promise<string>} Path to the generated PDF
  */
 const generatePdfReport = async (html, outputPath) => {
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
+  let browser = null;
   
   try {
+    // Check if we're in a dev environment
+    const isDev = process.env.NODE_ENV !== 'production';
+    
+    if (isDev) {
+      // In development, use local Chrome installation
+      browser = await puppeteer.launch({
+        headless: 'new',
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        executablePath: process.env.CHROME_PATH // Add this to your .env file if needed
+      });
+    } else {
+      // In production (Render, AWS Lambda, etc.)
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath,
+        headless: chromium.headless
+      });
+    }
+    
     const page = await browser.newPage();
     await page.setContent(html);
     
@@ -369,7 +386,9 @@ const generatePdfReport = async (html, outputPath) => {
     
     return outputPath;
   } finally {
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 };
 
@@ -580,5 +599,7 @@ const processMonthlyReports = async () => {
 module.exports = {
   processMonthlyReports,
   processGymMonthlyReport,
-  isLastDayOfMonth
+  isLastDayOfMonth,
+  generateReportHtml,
+  generatePdfReport
 }; 
