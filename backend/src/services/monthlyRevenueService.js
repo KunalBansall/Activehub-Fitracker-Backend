@@ -4,8 +4,8 @@ const Order = require('../models/Order');
 const GymSettings = require('../models/GymSettings');
 const MonthlyRevenue = require('../models/MonthlyRevenue');
 const nodemailer = require('nodemailer');
-const chromium = require('chrome-aws-lambda');
-const puppeteer = require('puppeteer-core');
+// Use regular puppeteer for local development
+const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
@@ -346,24 +346,24 @@ const generatePdfReport = async (html, outputPath) => {
   let browser = null;
   
   try {
-    // Check if we're in a dev environment
-    const isDev = process.env.NODE_ENV !== 'production';
+    // Configure browser options based on environment
+    const isProduction = process.env.NODE_ENV === 'production';
+    const options = {
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
+    };
     
-    if (isDev) {
-      // In development, use local Chrome installation
-      browser = await puppeteer.launch({
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        executablePath: process.env.CHROME_PATH // Add this to your .env file if needed
-      });
-    } else {
-      // In production (Render, AWS Lambda, etc.)
-      browser = await puppeteer.launch({
-        args: chromium.args,
-        executablePath: await chromium.executablePath,
-        headless: chromium.headless
-      });
-    }
+    // Launch browser with enhanced options for production
+    browser = await puppeteer.launch(options);
     
     const page = await browser.newPage();
     await page.setContent(html);
