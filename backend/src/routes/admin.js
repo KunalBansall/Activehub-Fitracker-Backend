@@ -9,6 +9,8 @@ const {
   getAllGyms
 } = require("../controllers/adminController");
 const { authenticateAdmin } = require("../middleware/auth"); // Middleware for authentication
+const {restrictWriteAccess} = require("../middleware/subscriptionAccess");
+
 
 const router = express.Router();
 
@@ -16,13 +18,13 @@ const router = express.Router();
 router.get("/profile", authenticateAdmin, getAdminProfile);
 
 // PUT /profile - Update admin profile
-router.put("/profile", authenticateAdmin, updateAdminProfile);
+router.put("/profile", authenticateAdmin,restrictWriteAccess, updateAdminProfile);
 
 // POST /photos - Add a photo to the admin's gallery
-router.post("/photos", authenticateAdmin, addPhoto);
+router.post("/photos", authenticateAdmin,restrictWriteAccess, addPhoto);
 
 // DELETE /photos/:photoId - Remove a photo from the admin's gallery
-router.delete("/photos/:photoId", authenticateAdmin, removePhoto);
+router.delete("/photos/:photoId", authenticateAdmin,restrictWriteAccess, removePhoto);
 
 // PUT /profile-photo - Update the admin's profile photo
 router.put("/profile-photo", authenticateAdmin, updateProfilePhoto);

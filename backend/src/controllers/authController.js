@@ -24,6 +24,11 @@ exports.signup = async (req, res) => {
     }
     const role = email === process.env.OWNER_EMAIL ? "owner" : "admin";
 
+    // Calculate trial and grace period end dates
+    const now = new Date();
+    const trialEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // +30 days
+    const graceEndDate = new Date(trialEndDate.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days after trial
+
     const admin = await Admin.create({
       username,
       email,
@@ -32,6 +37,9 @@ exports.signup = async (req, res) => {
       gymAddress,
       gymType,
       role,
+      subscriptionStatus: "trial",
+      trialEndDate,
+      graceEndDate,
     });
 
     const ipAddress = getClientIp(req);
@@ -57,6 +65,8 @@ exports.signup = async (req, res) => {
       gymName: admin.gymName,
       role: admin.role,
       token,
+      subscriptionStatus: admin.subscriptionStatus,
+      trialEndDate: admin.trialEndDate
     });
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -103,6 +113,10 @@ exports.signin = async (req, res) => {
       gymName: admin.gymName,
       role: admin.role,
       token,
+      subscriptionStatus: admin.subscriptionStatus,
+      trialEndDate: admin.trialEndDate,
+      graceEndDate: admin.graceEndDate,
+      subscriptionEndDate: admin.subscriptionEndDate
     });
   } catch (error) {
     res.status(400).json({ message: error.message });

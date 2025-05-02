@@ -914,6 +914,249 @@ const sendInactivityNotification = async (member, gymName, message, senderEmail 
   }
 };
 
+/**
+ * Generates a subscription confirmation email template
+ * @param {Object} admin - The admin object
+ * @param {Object} paymentDetails - Payment details from Razorpay
+ * @param {string} planName - Name of the subscription plan
+ * @param {number} amount - Amount paid
+ * @param {Date} startDate - Subscription start date
+ * @param {Date} endDate - Subscription end date
+ * @returns {string} HTML email template
+ */
+const subscriptionConfirmationTemplate = (admin, paymentDetails, planName, amount, startDate, endDate) => {
+  const formattedStartDate = new Date(startDate).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  const formattedEndDate = new Date(endDate).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  const invoiceDate = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  const invoiceNumber = `INV-${Date.now().toString().slice(-8)}-${Math.floor(Math.random() * 1000)}`;
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Subscription Confirmation</title>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          margin: 0;
+          padding: 0;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #1a56db;
+          color: white;
+          padding: 20px;
+          text-align: center;
+          border-radius: 5px 5px 0 0;
+        }
+        .content {
+          background-color: #f9fafb;
+          padding: 30px;
+          border-radius: 0 0 5px 5px;
+          border: 1px solid #e5e7eb;
+          border-top: none;
+        }
+        .logo {
+          font-size: 24px;
+          font-weight: bold;
+          margin-bottom: 10px;
+        }
+        .invoice-box {
+          background-color: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 5px;
+          padding: 20px;
+          margin-top: 20px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .invoice-header {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          border-bottom: 1px solid #e5e7eb;
+          padding-bottom: 15px;
+        }
+        .invoice-details {
+          margin-bottom: 20px;
+        }
+        .invoice-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+        }
+        .invoice-table th {
+          background-color: #f3f4f6;
+          padding: 10px;
+          text-align: left;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .invoice-table td {
+          padding: 10px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .invoice-total {
+          text-align: right;
+          font-weight: bold;
+          font-size: 18px;
+          margin-top: 20px;
+        }
+        .button {
+          display: inline-block;
+          background-color: #1a56db;
+          color: white;
+          text-decoration: none;
+          padding: 10px 20px;
+          border-radius: 5px;
+          margin-top: 20px;
+          font-weight: bold;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 30px;
+          color: #6b7280;
+          font-size: 14px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">ActiveHub FlexTracker</div>
+          <div>Subscription Confirmation</div>
+        </div>
+        <div class="content">
+          <h2>Thank you for your subscription!</h2>
+          <p>Dear ${admin.username || admin.email},</p>
+          <p>Your subscription to <strong>${planName}</strong> has been successfully processed. You now have full access to all features of ActiveHub FlexTracker.</p>
+          
+          <div class="invoice-box">
+            <div class="invoice-header">
+              <div>
+                <h3>INVOICE</h3>
+                <div>Invoice #: ${invoiceNumber}</div>
+                <div>Date: ${invoiceDate}</div>
+              </div>
+              <div>
+                <strong>ActiveHub FlexTracker</strong><br>
+                activehubfitracker@gmail.com<br>
+                https://activehubfitracker.onrender.com/
+              </div>
+            </div>
+            
+            <div class="invoice-details">
+              <strong>Bill To:</strong><br>
+              ${admin.username || ''}<br>
+              ${admin.email}<br>
+              ${admin.gymName || 'Your Gym'}<br>
+            </div>
+            
+            <table class="invoice-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Period</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>${planName} Subscription</td>
+                  <td>${formattedStartDate} to ${formattedEndDate}</td>
+                  <td>₹${amount.toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <div class="invoice-total">
+              Total: ₹${amount.toFixed(2)}
+            </div>
+            
+            <div style="margin-top: 20px; font-size: 14px;">
+              <strong>Payment Information:</strong><br>
+              Payment ID: ${paymentDetails.razorpay_payment_id || paymentDetails.paymentId || 'N/A'}<br>
+              Subscription ID: ${paymentDetails.razorpay_subscription_id || paymentDetails.subscriptionId || 'N/A'}<br>
+              Payment Method: ${paymentDetails.method || 'Online Payment'}<br>
+              Status: Paid
+            </div>
+          </div>
+          
+          <p>Your subscription will automatically renew on <strong>${formattedEndDate}</strong>.</p>
+          
+          <p>To manage your subscription or view billing information, please visit your account settings:</p>
+          
+          <a href="${process.env.FRONTEND_URL}/subscription" class="button" style="display: inline-block; background-color: #1a56db; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 5px; margin-top: 20px; font-weight: bold; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);">Manage Subscription</a>
+          
+          <div class="footer">
+            <p>If you have any questions, please contact our support team at activehubfitracker@gmail.com</p>
+            <p>&copy; ${new Date().getFullYear()} ActiveHub FlexTracker. All rights reserved.</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+/**
+ * Sends a subscription confirmation email with invoice
+ * @param {Object} admin - Admin object
+ * @param {Object} paymentDetails - Payment details
+ * @param {string} planName - Name of the plan
+ * @param {number} amount - Amount paid
+ * @param {Date} startDate - Subscription start date
+ * @param {Date} endDate - Subscription end date
+ * @returns {Promise<boolean>} Success status
+ */
+const sendSubscriptionConfirmationEmail = async (admin, paymentDetails, planName, amount, startDate, endDate) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: process.env.EMAIL_SERVICE || 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS
+      }
+    });
+    
+    const html = subscriptionConfirmationTemplate(admin, paymentDetails, planName, amount, startDate, endDate);
+    
+    await transporter.sendMail({
+      from: `"ActiveHub FlexTracker" <${process.env.EMAIL_USER}>`,
+      to: admin.email,
+      subject: 'Subscription Confirmation and Invoice',
+      html: html
+    });
+    
+    console.log(`Subscription confirmation email sent to ${admin.email}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending subscription confirmation email:', error);
+    return false;
+  }
+};
+
 module.exports = {
   sendEmail,
   sendOrderConfirmationEmail,
@@ -922,5 +1165,6 @@ module.exports = {
   sendGeneralEmail,
   sendInactivityNotification,
   sendWorkoutMotivationEmail,
-  sendWorkoutSummaryEmail
+  sendWorkoutSummaryEmail,
+  sendSubscriptionConfirmationEmail
 }; 

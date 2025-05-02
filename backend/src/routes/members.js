@@ -4,6 +4,8 @@ const router = express.Router();
 const { body } = require("express-validator");
 const memberController = require("../controllers/memberController");
 const { authenticateAdmin } = require("../middleware/auth"); // Import the middleware
+const {restrictWriteAccess} = require("../middleware/subscriptionAccess");
+
 
 // Validation middleware
 const memberValidation = [
@@ -35,8 +37,8 @@ router.use(authenticateAdmin);
 router.get("/", memberController.getAllMembers);
 router.get("/search", memberController.searchMembers);
 router.get("/:id", memberController.getMemberDetails);
-router.post("/", memberValidation, memberController.createMember);
-router.patch("/:id", memberController.updateMember);
+router.post("/",restrictWriteAccess, memberValidation, memberController.createMember);
+router.patch("/:id", restrictWriteAccess, memberController.updateMember);
 router.post("/renewal-reminder", memberController.sendRenewalReminder);
 
 module.exports = router;

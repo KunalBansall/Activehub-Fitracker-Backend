@@ -3,6 +3,8 @@ const router = express.Router();
 const { body } = require("express-validator");
 const productController = require("../controllers/productController");
 const { authenticateAdmin } = require("../middleware/auth");
+const {restrictWriteAccess} = require("../middleware/subscriptionAccess");
+
 
 // Validation middleware for product creation and updates
 const productValidation = [
@@ -25,10 +27,10 @@ router.use(authenticateAdmin);
 // Admin routes
 router.get("/", productController.getAllProducts);
 router.get("/:id", productController.getProductById);
-router.post("/", productValidation, productController.createProduct);
-router.put("/:id", productValidation, productController.updateProduct);
-router.delete("/:id", productController.deleteProduct);
-router.patch("/:id/feature", productController.toggleFeature);
+router.post("/", restrictWriteAccess, productValidation, productController.createProduct);
+router.put("/:id", restrictWriteAccess,productValidation, productController.updateProduct);
+router.delete("/:id",restrictWriteAccess, productController.deleteProduct);
+router.patch("/:id/feature", restrictWriteAccess,productController.toggleFeature);
 router.post("/:id/reviews", productController.adminAddReview);
 
 module.exports = router; 

@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const checkInactiveMembers = require('./inactivityCheck');
+const checkSubscriptionStatuses = require('./subscriptionStatusCheck');
 const { processMonthlyReports } = require('../services/monthlyRevenueService');
 
 /**
@@ -18,6 +19,12 @@ const setupCronJobs = () => {
   cron.schedule('0 0 28-31 * *', () => {
     console.log('Checking for monthly revenue reports...');
     processMonthlyReports();
+  });
+
+  // Check subscription statuses daily at midnight
+  cron.schedule('*/1 * * * *', () => {
+    console.log('Running scheduled subscription status check...');
+    checkSubscriptionStatuses();
   });
 
   console.log('Cron jobs scheduled successfully');

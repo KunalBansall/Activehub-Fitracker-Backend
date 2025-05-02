@@ -26,6 +26,9 @@ const publicAnnouncementRoutes = require("./routes/publicAnnouncements");
 const workoutRoutes = require("./routes/workouts");
 const settingsRoutes = require("./routes/settings");
 const revenueRoutes = require("./routes/revenueRoutes");
+const checkSubscription = require("./middleware/subscriptionCheck");
+const paymentRoutes = require("./routes/paymentsRoutes");
+
 
 const app = express();
 connectDB();
@@ -43,29 +46,32 @@ const allowedOrigins = [
 
 
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Reject requests without an origin or from disallowed origins
-      if (!origin || !allowedOrigins.includes(origin)) {
-        return callback(new Error("Not allowed by CORS"));
-      }
-      // Allow requests from allowed origins
-      return callback(null, true);
-    },
-    credentials: true, // Allow cookies or credentials if needed
-  })
-);
 // app.use(
 //   cors({
-//     origin: "*",
+//     origin: function (origin, callback) {
+//       // Reject requests without an origin or from disallowed origins
+//       if (!origin || !allowedOrigins.includes(origin)) {
+//         return callback(new Error("Not allowed by CORS"));
+//       }
+//       // Allow requests from allowed origins
+//       return callback(null, true);
+//     },
+//     credentials: true, // Allow cookies or credentials if needed
 //   })
 // );
+app.use(
+  cors({
+    origin: "*",
+  })
+);
 
 app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
 console.log("Frontend URL from .env:", process.env.FRONTEND_URL);
+
+// Apply subscription check middleware to all routes
+app.use(checkSubscription);
 
 // API Routes
 app.use("/api/auth", authRoutes);
@@ -87,6 +93,10 @@ app.use("/api/public/announcements", publicAnnouncementRoutes);
 app.use("/api/workouts", workoutRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/admin/revenue", revenueRoutes);
+
+app.use("/api/payment", paymentRoutes);
+app.use("/api/payment/webhook", express.raw({ type: "application/json" }));
+
 
 // Define a root route (optional)
 app.get("/", (req, res) => {

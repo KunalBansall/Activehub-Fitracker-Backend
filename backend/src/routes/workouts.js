@@ -4,6 +4,8 @@ const { body } = require('express-validator');
 const workoutController = require('../controllers/workoutController');
 const { authenticateAdmin } = require('../middleware/auth');
 const { authenticateMember } = require('../middleware/authMember');
+const {restrictWriteAccess} = require("../middleware/subscriptionAccess");
+
 
 // Validation for workout plan creation
 const workoutPlanValidation = [
@@ -53,10 +55,10 @@ const workoutPlanValidation = [
 router.use('/admin', authenticateAdmin);
 
 // Create a workout plan for a member
-router.post('/admin/member/:memberId/plan', workoutPlanValidation, workoutController.createWorkoutPlan);
+router.post('/admin/member/:memberId/plan', restrictWriteAccess, workoutPlanValidation, workoutController.createWorkoutPlan);
 
 // Update a workout plan
-router.put('/admin/plan/:planId', workoutController.updateWorkoutPlan);
+router.put('/admin/plan/:planId',restrictWriteAccess, workoutController.updateWorkoutPlan);
 
 // Delete a workout plan
 router.delete('/admin/plan/:planId', workoutController.deleteWorkoutPlan);

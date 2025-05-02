@@ -12,6 +12,16 @@ const gymPhotoSchema = new mongoose.Schema({
   }
 }, { _id: true });
 
+const paymentHistorySchema = new mongoose.Schema({
+  paymentId: String,
+  amount: Number,
+  plan: String,
+  startDate: Date,
+  endDate: Date,
+  status: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
 const adminSchema = new mongoose.Schema({
   username: {
     type: String,
@@ -51,7 +61,7 @@ const adminSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ["admin", "owner"],
+    enum: ["admin", "owner", "superadmin"],
     default: "admin",  // Default role is "admin"
   },
   profilePhotoUrl: {
@@ -60,7 +70,37 @@ const adminSchema = new mongoose.Schema({
   profilePhotoId: {
     type: String,
   },
-  photos: [gymPhotoSchema]
+  photos: [gymPhotoSchema],
+  // Subscription fields
+  subscriptionStatus: {
+    type: String,
+    enum: ["trial", "grace", "active", "expired", "cancelled"],
+    default: "trial",
+  },
+  trialEndDate: {
+    type: Date,
+    required: true,
+    default: function() {
+      const now = new Date();
+      return new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // +30 days from createdAt
+    }
+  },
+  graceEndDate: {
+    type: Date,
+    required: true,
+    default: function() {
+      const trialEnd = this.trialEndDate || new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000);
+      return new Date(trialEnd.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days from trial end
+    }
+  },
+  subscriptionEndDate: {
+    type: Date, // only used when in 'active' status
+  },
+  razorpaySubscriptionId: {
+    type: String,
+  },
+  paymentHistory: [paymentHistorySchema],
+  couponUsed: String,
 }, {
   timestamps: true
 });
