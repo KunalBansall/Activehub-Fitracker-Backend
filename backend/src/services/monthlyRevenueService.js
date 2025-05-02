@@ -4,8 +4,8 @@ const Order = require('../models/Order');
 const GymSettings = require('../models/GymSettings');
 const MonthlyRevenue = require('../models/MonthlyRevenue');
 const nodemailer = require('nodemailer');
-// Use regular puppeteer for local development
-const puppeteer = require('puppeteer');
+// Use our configured Puppeteer utility
+const { getBrowser } = require('../utils/puppeteer');
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
@@ -344,47 +344,37 @@ const generateReportHtml = (data) => {
  */
 const generatePdfReport = async (html, outputPath) => {
   let browser = null;
-  
   try {
-    // Configure browser options based on environment
-    const isProduction = process.env.NODE_ENV === 'production';
-    const options = {
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
-      ]
-    };
-    
-    // Launch browser with enhanced options for production
-    browser = await puppeteer.launch(options);
-    
-    const page = await browser.newPage();
-    await page.setContent(html);
-    
-    // Make sure the directory exists
+    // Create directory if it doesn't exist
     const dir = path.dirname(outputPath);
     await mkdirAsync(dir, { recursive: true });
     
-    await page.pdf({
+    // Use our utility function to get a properly configured browser
+    browser = await getBrowser();
+    
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    
+    // Set PDF options
+    const pdfOptions = {
       path: outputPath,
       format: 'A4',
       printBackground: true,
       margin: {
         top: '20px',
+        right: '20px',
         bottom: '20px',
-        left: '20px',
-        right: '20px'
+        left: '20px'
       }
-    });
+    };
+    
+    // Generate PDF
+    await page.pdf(pdfOptions);
     
     return outputPath;
+  } catch (error) {
+    console.error('Error generating PDF report:', error);
+    throw error;
   } finally {
     if (browser) {
       await browser.close();
