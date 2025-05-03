@@ -13,16 +13,23 @@ const setupCronJobs = () => {
     checkInactiveMembers();
   });
 
-  // Process monthly revenue reports at midnight on the last day of each month
+  // Process monthly revenue reports at 8:00 PM on the last day of each month
   // The "28-31" pattern will run on days 28,29,30,31 of each month,
-  // but our function checks if it's the actual last day
-  cron.schedule('0 0 28-31 * *', () => {
+  // but our internal isLastDayOfMonth() function checks if it's actually the last day
+  // This is a more reliable approach than trying to determine the last day in the cron pattern
+  cron.schedule('0 20 28-31 * *', () => {
     console.log('Checking for monthly revenue reports...');
     processMonthlyReports();
   });
 
+  // Also run reports at 11:30 PM on the last day as a backup in case the earlier job fails
+  cron.schedule('30 23 28-31 * *', () => {
+    console.log('Running backup monthly revenue report check...');
+    processMonthlyReports();
+  });
+
   // Check subscription statuses daily at midnight
-  cron.schedule('*/1 * * * *', () => {
+  cron.schedule('0 0 * * *', () => {
     console.log('Running scheduled subscription status check...');
     checkSubscriptionStatuses();
   });

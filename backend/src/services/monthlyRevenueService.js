@@ -387,7 +387,7 @@ const generatePdfReport = async (html, outputPath) => {
  * @param {Object} admin - Admin object with email
  * @param {string} html - HTML content
  * @param {string|null} pdfPath - Path to PDF attachment (or null if no PDF)
- * @param {string} month - Month name
+ * @param {number} month - Month index (0-11)
  * @param {number} year - Year
  * @returns {Promise<boolean>} Success status
  */
@@ -396,6 +396,14 @@ const sendReportEmail = async (admin, html, pdfPath, month, year) => {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+  
+  // Skip if admin email is missing
+  if (!admin.email) {
+    console.error(`Cannot send report email: Admin ${admin._id} has no email address`);
+    return false;
+  }
+  
+  console.log(`Preparing to send monthly report email to ${admin.email} for ${monthNames[month]} ${year}`);
   
   const transporter = nodemailer.createTransport({
     service: process.env.EMAIL_SERVICE || 'gmail',
@@ -410,7 +418,14 @@ const sendReportEmail = async (admin, html, pdfPath, month, year) => {
     from: `"ActiveHub FlexTracker" <${process.env.EMAIL_USER}>`,
     to: admin.email,
     subject: `Monthly Revenue Report - ${monthNames[month]} ${year}`,
-    html: html
+    html: html,
+    // Set high priority
+    priority: 'high',
+    headers: {
+      'X-Priority': '1',
+      'X-MSMail-Priority': 'High',
+      'Importance': 'High'
+    }
   };
   
   try {
@@ -426,6 +441,7 @@ const sendReportEmail = async (admin, html, pdfPath, month, year) => {
       tempPdfPath = path.join(tempDir, `temp-report-${admin._id}-${Date.now()}.pdf`);
       
       // Generate the PDF
+      console.log(`Generating PDF report for ${admin.gymName || admin.email}`);
       await generatePdfReport(html, tempPdfPath);
       
       // Add the PDF attachment to mail options
@@ -447,21 +463,42 @@ const sendReportEmail = async (admin, html, pdfPath, month, year) => {
       ];
     }
     
-    // Send the email
-    await transporter.sendMail(mailOptions);
+    // Send the email with retry mechanism
+    let retryCount = 0;
+    const maxRetries = 3;
+    let success = false;
+    
+    while (!success && retryCount < maxRetries) {
+      try {
+        console.log(`Sending email to ${admin.email} (attempt ${retryCount + 1}/${maxRetries})`);
+        await transporter.sendMail(mailOptions);
+        success = true;
+        console.log(`✅ Monthly report email sent successfully to ${admin.email}`);
+      } catch (sendError) {
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          throw sendError; // Rethrow after all retries failed
+        }
+        console.log(`Retry attempt ${retryCount}/${maxRetries} after error: ${sendError.message}`);
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+      }
+    }
     
     // Delete the temporary PDF file if we created one
     if (tempPdfPath) {
       fs.unlink(tempPdfPath, (err) => {
         if (err) {
           console.error(`Error deleting temporary PDF file: ${err}`);
+        } else {
+          console.log(`Temporary PDF file deleted: ${tempPdfPath}`);
         }
       });
     }
     
     return true;
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error(`🚨 Error sending monthly report email to ${admin.email}:`, error);
     return false;
   }
 };
@@ -555,34 +592,76 @@ const processGymMonthlyReport = async (admin) => {
 
 /**
  * Main function to process monthly revenue reports for all gyms
+ * This is run automatically on the last day of each month via cron job
  */
 const processMonthlyReports = async () => {
   try {
+    console.log('🔄 Starting monthly revenue reports process...');
+    
     // Only run on the last day of the month
     if (!isLastDayOfMonth()) {
-      console.log('Not the last day of the month. Skipping monthly reports.');
+      console.log('📅 Not the last day of the month. Skipping monthly reports.');
       return;
     }
     
-    console.log('Processing monthly revenue reports...');
+    console.log('📊 Processing monthly revenue reports for all gyms...');
+    
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const monthName = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ][currentMonth];
+    
+    console.log(`📆 Generating reports for ${monthName} ${currentYear}`);
     
     // Get all gym admins
     const admins = await Admin.find();
     
     if (!admins || admins.length === 0) {
-      console.log('No gyms found to process reports for.');
+      console.log('❌ No gyms found to process reports for.');
       return;
     }
     
-    // Process reports for each gym
-    const results = await Promise.all(
-      admins.map(admin => processGymMonthlyReport(admin))
-    );
+    console.log(`🏋️ Found ${admins.length} gyms to process`);
+    
+    // Process reports for each gym with a delay between each to avoid overwhelming the email service
+    const results = [];
+    for (const admin of admins) {
+      try {
+        console.log(`⏳ Processing gym: ${admin.gymName || admin.email || admin._id}`);
+        const result = await processGymMonthlyReport(admin);
+        results.push(result);
+        
+        // Add a small delay between processing each gym to avoid overwhelming services
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (gymError) {
+        console.error(`🚨 Error processing gym ${admin.gymName || admin._id}:`, gymError);
+        results.push(false);
+      }
+    }
     
     const successful = results.filter(result => result).length;
-    console.log(`Monthly reports completed. Processed ${successful} of ${admins.length} gyms.`);
+    console.log(`✅ Monthly reports completed. Successfully processed ${successful} of ${admins.length} gyms.`);
+    
+    // Save a record of the report generation
+    try {
+      // You could create a model to store a record of report runs
+      // For now, just log it
+      console.log(`📝 Report generation complete: ${new Date().toISOString()}`);
+      console.log(`   Month: ${monthName} ${currentYear}`);
+      console.log(`   Total gyms: ${admins.length}`);
+      console.log(`   Successful: ${successful}`);
+      console.log(`   Failed: ${admins.length - successful}`);
+    } catch (recordError) {
+      console.error('Error saving report generation record:', recordError);
+    }
+    
+    return successful;
   } catch (error) {
-    console.error('Error processing monthly revenue reports:', error);
+    console.error('🚨 Fatal error processing monthly revenue reports:', error);
+    return 0;
   }
 };
 

@@ -4,13 +4,19 @@ const Payment = require("../models/Payments");
 const { admin } = require("googleapis/build/src/apis/admin");
 const Admin = require("../models/Admin");
 const { sendSubscriptionConfirmationEmail } = require("../services/emailService");
+const dateUtils = require("../utils/dateUtils");
 
 exports.createSubscription = async (req, res) => {
     try {
       const admin = req.admin;
-  
-      // Create the subscription with proper settings for recurring payments
-      const subscription = await razorpay.subscriptions.create({
+      
+      // Calculate trial period days if user is in trial
+      const trialPeriodDays = admin.subscriptionStatus === 'trial' && admin.trialEndDate 
+        ? Math.max(0, Math.ceil((new Date(admin.trialEndDate) - new Date()) / (1000 * 60 * 60 * 24)))
+        : 0;
+      
+      // Get subscription configuration based on user status
+      const subscriptionConfig = {
         plan_id: process.env.RAZORPAY_PLAN_ID,
         customer_notify: 1, // Razorpay will send an email to customer
         total_count: 12,     // Auto-renews for 12 months (can cancel anytime)
@@ -18,9 +24,26 @@ exports.createSubscription = async (req, res) => {
         notes: {
           adminId: admin._id.toString(),
           email: admin.email,
+          subscriptionStatus: admin.subscriptionStatus,
+          trialEndDate: admin.trialEndDate ? new Date(admin.trialEndDate).toISOString() : null,
         },
-        // Remove start_at and expire_at to allow proper recurring subscription
-      });
+      };
+      
+      // If user is in trial, add trial_period_days to the subscription
+      if (trialPeriodDays > 0) {
+        console.log(`Creating subscription with ${trialPeriodDays} trial days remaining for admin ${admin._id}`);
+        subscriptionConfig.start_at = Math.floor(new Date(admin.trialEndDate).getTime() / 1000); // Unix timestamp
+      }
+  
+      // Create the subscription with proper settings
+      const subscription = await razorpay.subscriptions.create(subscriptionConfig);
+      
+      // Calculate our dates using our utility
+      const { startDate, endDate } = dateUtils.calculateSubscriptionDates(
+        admin.subscriptionStatus,
+        admin.trialEndDate,
+        admin.graceEndDate
+      );
   
       res.status(200).json({
         subscriptionId: subscription.id,
@@ -30,6 +53,10 @@ exports.createSubscription = async (req, res) => {
         nextDueOn: new Date(subscription.next_due_on * 1000).toLocaleString(),
         createdAt: new Date(subscription.created_at * 1000).toLocaleString(),
         status: subscription.status,
+        // Include our calculated dates in the response
+        calculatedStartDate: startDate.toISOString(),
+        calculatedEndDate: endDate.toISOString(),
+        trialPeriodDays: trialPeriodDays
       });
     } catch (err) {
       console.error("Error creating subscription:", err);
@@ -69,10 +96,22 @@ exports.verifySubscription = async (req, res) => {
     
     await payment.save();
     
-    // Calculate subscription end date (30 days from now)
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 30);
+    // Calculate subscription dates using our utility function
+    const { startDate, endDate } = dateUtils.calculateSubscriptionDates(
+      admin.subscriptionStatus,
+      admin.trialEndDate,
+      admin.graceEndDate
+    );
+    
+    // Get the subscription details from Razorpay to align with next_due_on
+    const subscription = await razorpay.subscriptions.fetch(razorpay_subscription_id);
+    const razorpayNextDueDate = new Date(subscription.next_due_on * 1000);
+    
+    // Ensure our end date aligns with Razorpay's next_due_on
+    // Note: We prioritize our calculated end date, but log any mismatch for debugging
+    if (Math.abs(endDate.getTime() - razorpayNextDueDate.getTime()) > 24 * 60 * 60 * 1000) {
+      console.log(`Warning: Calculated end date (${endDate.toISOString()}) differs from Razorpay next_due_on (${razorpayNextDueDate.toISOString()}) by more than 1 day`);
+    }
     
     // Update the admin's subscription status
     await Admin.findByIdAndUpdate(adminId, { 
@@ -92,7 +131,7 @@ exports.verifySubscription = async (req, res) => {
       }
     });
   
-    console.log(`Admin ${adminId} subscription status updated to active`);
+    console.log(`Admin ${adminId} subscription status updated to active. Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
 
     // Send confirmation email with invoice details
     try {
@@ -192,23 +231,42 @@ exports.handleWebhook = async (req, res) => {
             try {
               const subscription = await razorpay.subscriptions.fetch(subscriptionId);
               
-              // Calculate new subscription end date (30 days from now)
-              const subscriptionEndDate = new Date();
-              subscriptionEndDate.setDate(subscriptionEndDate.getDate() + 30);
+              // Find admin to check current status
+              const admin = await Admin.findById(payment.adminId);
+              
+              if (!admin) {
+                console.error(`Admin not found for payment ${paymentDetails.id}`);
+                break;
+              }
+              
+              // Calculate subscription dates using our utility function
+              const { startDate, endDate } = dateUtils.calculateSubscriptionDates(
+                admin.subscriptionStatus,
+                admin.trialEndDate,
+                admin.graceEndDate
+              );
+              
+              // Get next due date from Razorpay
+              const razorpayNextDueDate = new Date(subscription.next_due_on * 1000);
+              
+              // Check for significant mismatches between our calculation and Razorpay's
+              if (Math.abs(endDate.getTime() - razorpayNextDueDate.getTime()) > 24 * 60 * 60 * 1000) {
+                console.log(`Warning: Webhook - Calculated end date (${endDate.toISOString()}) differs from Razorpay next_due_on (${razorpayNextDueDate.toISOString()}) by more than 1 day`);
+              }
               
               // Update admin's subscription status
-              const admin = await Admin.findByIdAndUpdate(
+              await Admin.findByIdAndUpdate(
                 payment.adminId,
                 {
                   subscriptionStatus: "active",
-                  subscriptionEndDate: subscriptionEndDate,
+                  subscriptionEndDate: endDate,
                   $push: { 
                     paymentHistory: {
                       paymentId: paymentDetails.id,
                       amount: paymentDetails.amount / 100,
                       plan: "ActiveHub Pro",
-                      startDate: new Date(),
-                      endDate: subscriptionEndDate,
+                      startDate: startDate,
+                      endDate: endDate,
                       status: "completed",
                       createdAt: new Date()
                     }
@@ -217,7 +275,7 @@ exports.handleWebhook = async (req, res) => {
                 { new: true }
               );
               
-              console.log(`Admin ${payment.adminId} subscription updated after payment capture`);
+              console.log(`Admin ${payment.adminId} subscription updated after payment capture. Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
             } catch (error) {
               console.error("Error fetching subscription from Razorpay:", error);
             }
@@ -236,20 +294,31 @@ exports.handleWebhook = async (req, res) => {
           });
           
           if (adminToUpdate) {
-            // Calculate subscription end date (30 days from now)
-            const subscriptionEndDate = new Date();
-            subscriptionEndDate.setDate(subscriptionEndDate.getDate() + 30);
+            // Calculate subscription dates using our utility function
+            const { startDate, endDate } = dateUtils.calculateSubscriptionDates(
+              adminToUpdate.subscriptionStatus,
+              adminToUpdate.trialEndDate,
+              adminToUpdate.graceEndDate
+            );
+            
+            // Get next due date from Razorpay
+            const razorpayNextDueDate = new Date(activatedSubscription.next_due_on * 1000);
+            
+            // Check for significant mismatches between our calculation and Razorpay
+            if (Math.abs(endDate.getTime() - razorpayNextDueDate.getTime()) > 24 * 60 * 60 * 1000) {
+              console.log(`Warning: Activation - Calculated end date (${endDate.toISOString()}) differs from Razorpay next_due_on (${razorpayNextDueDate.toISOString()}) by more than 1 day`);
+            }
             
             // Update admin subscription status
             await Admin.findByIdAndUpdate(
               adminToUpdate._id,
               {
                 subscriptionStatus: "active",
-                subscriptionEndDate: subscriptionEndDate
+                subscriptionEndDate: endDate
               }
             );
             
-            console.log(`Admin ${adminToUpdate._id} subscription activated`);
+            console.log(`Admin ${adminToUpdate._id} subscription activated. Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
           }
           break;
   
@@ -266,23 +335,36 @@ exports.handleWebhook = async (req, res) => {
           });
           
           if (subscribedAdmin) {
-            // Extend subscription end date by 30 days
-            const oldEndDate = new Date(subscribedAdmin.subscriptionEndDate || new Date());
-            const newEndDate = new Date(oldEndDate);
-            newEndDate.setDate(newEndDate.getDate() + 30);
+            // For recurring charges, startDate is the previous subscriptionEndDate
+            const startDate = subscribedAdmin.subscriptionEndDate 
+              ? new Date(subscribedAdmin.subscriptionEndDate) 
+              : dateUtils.getCurrentDateUTC();
+            
+            // Calculate new end date by adding 1 month to the start date
+            const endDate = dateUtils.addMonths(startDate, 1);
+            
+            // Get next due date from Razorpay
+            const razorpayNextDueDate = chargedSubscription.next_due_on
+              ? new Date(chargedSubscription.next_due_on * 1000)
+              : dateUtils.addMonths(dateUtils.getCurrentDateUTC(), 1);
+              
+            // Check for significant mismatches between our calculation and Razorpay
+            if (Math.abs(endDate.getTime() - razorpayNextDueDate.getTime()) > 24 * 60 * 60 * 1000) {
+              console.log(`Warning: Charged - Calculated end date (${endDate.toISOString()}) differs from Razorpay next_due_on (${razorpayNextDueDate.toISOString()}) by more than 1 day`);
+            }
             
             // Update admin subscription
             await Admin.findByIdAndUpdate(
               subscribedAdmin._id,
               {
-                subscriptionEndDate: newEndDate,
+                subscriptionEndDate: endDate,
                 $push: { 
                   paymentHistory: {
                     paymentId: paymentId || `recurring-${Date.now()}`,
                     amount: chargedSubscription.amount / 100,
                     plan: "ActiveHub Pro",
-                    startDate: oldEndDate,
-                    endDate: newEndDate,
+                    startDate: startDate,
+                    endDate: endDate,
                     status: "completed",
                     createdAt: new Date()
                   }
@@ -290,7 +372,7 @@ exports.handleWebhook = async (req, res) => {
               }
             );
             
-            console.log(`Admin ${subscribedAdmin._id} subscription extended to ${newEndDate}`);
+            console.log(`Admin ${subscribedAdmin._id} subscription extended. Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
           }
           break;
   
@@ -398,4 +480,56 @@ exports.handleWebhook = async (req, res) => {
       res.status(500).send("Webhook handler failed");
     }
   };
+  
+exports.cancelSubscription = async (req, res) => {
+  try {
+    const adminId = req.admin._id;
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Check if admin has an active subscription
+    if (admin.subscriptionStatus !== 'active' || !admin.razorpaySubscriptionId) {
+      return res.status(400).json({ 
+        message: "No active subscription found to cancel" 
+      });
+    }
+
+    const subscriptionId = admin.razorpaySubscriptionId;
+
+    // Cancel subscription with Razorpay
+    // Setting cancel_at_cycle_end to true will cancel the subscription at the end of the current billing cycle
+    await razorpay.subscriptions.cancel(subscriptionId, {
+      cancel_at_cycle_end: true
+    });
+
+    // Update admin's subscription status to indicate cancellation pending
+    await Admin.findByIdAndUpdate(adminId, {
+      subscriptionStatus: "active", // Keep as active until the end date
+      $push: {
+        paymentHistory: {
+          paymentId: `cancel-${Date.now()}`,
+          amount: 0,
+          plan: "ActiveHub Pro - Cancellation",
+          startDate: new Date(),
+          endDate: admin.subscriptionEndDate,
+          status: "cancellation_scheduled",
+          createdAt: new Date()
+        }
+      }
+    });
+
+    console.log(`Admin ${adminId} subscription cancelled at cycle end: ${subscriptionId}`);
+
+    res.status(200).json({ 
+      message: "Subscription cancellation scheduled. Your subscription will remain active until the end of your current billing period.", 
+      endDate: admin.subscriptionEndDate 
+    });
+  } catch (err) {
+    console.error("Cancel subscription error:", err);
+    res.status(500).json({ message: "Failed to cancel subscription", error: err.message });
+  }
+};
   
