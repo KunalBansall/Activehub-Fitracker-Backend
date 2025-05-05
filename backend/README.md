@@ -38,6 +38,9 @@ This is the backend API for ActiveHub FitTracker, a comprehensive gym management
    CLOUDINARY_API_KEY=your_cloudinary_api_key
    CLOUDINARY_API_SECRET=your_cloudinary_api_secret
    OWNER_EMAIL=your_owner_email
+   RAZORPAY_KEY_ID=your_razorpay_key_id
+   RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+   RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
    ```
 4. Install dependencies:
    ```
@@ -92,6 +95,16 @@ This is the backend API for ActiveHub FitTracker, a comprehensive gym management
 - `DELETE /api/ads/:id` - Delete ad
 - `GET /api/ads/placement/:placement` - Get ads by placement
 
+### Payment Routes
+- `POST /api/payment/create-subscription` - Create a new subscription
+- `POST /api/payment/verify-subscription` - Verify a subscription payment
+- `POST /api/payment/webhook` - Process webhook events from Razorpay (legacy endpoint)
+- `GET /api/payment/history` - Get payment history for the current admin
+- `POST /api/payment/cancel-subscription` - Cancel a subscription
+
+### Razorpay Webhook
+- `POST /razorpay-webhook` - Dedicated endpoint for processing Razorpay webhook events
+
 ## Data Models
 
 ### User (Admin)
@@ -131,3 +144,49 @@ The API uses JWT for authentication with the following flow:
 2. Server verifies credentials and returns JWT token
 3. Client includes token in Authorization header for subsequent requests
 4. Server validates token and processes authorized requests 
+
+## Environment Variables
+
+Make sure you have the following environment variables in your `.env` file:
+
+### Razorpay Configuration
+```
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
+```
+
+The `RAZORPAY_WEBHOOK_SECRET` is the secret key provided by Razorpay for webhook authentication. You can find this in your Razorpay Dashboard under Developer > Webhooks.
+
+## Webhook Configuration
+
+The application provides a dedicated webhook endpoint for Razorpay at:
+
+```
+https://your-domain.com/razorpay-webhook
+```
+
+When configuring webhooks in your Razorpay Dashboard, use this URL as the webhook endpoint. Make sure to:
+
+1. Set the webhook URL to point to your server's `/razorpay-webhook` endpoint
+2. Configure the secret in both Razorpay and your .env file
+3. Select at least the following events to be sent to the webhook:
+   - payment.captured
+   - payment.failed
+   - subscription.activated
+   - subscription.charged
+   - subscription.halted
+   - subscription.cancelled
+
+## API Routes
+
+### Payment Routes
+
+- `POST /api/payment/create-subscription` - Create a new subscription
+- `POST /api/payment/verify-subscription` - Verify a subscription payment
+- `POST /api/payment/webhook` - Process webhook events from Razorpay (legacy endpoint)
+- `GET /api/payment/history` - Get payment history for the current admin
+- `POST /api/payment/cancel-subscription` - Cancel a subscription
+
+### Razorpay Webhook
+- `POST /razorpay-webhook` - Dedicated endpoint for processing Razorpay webhook events 
