@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": ">=16"
+    "node": ">=16 <24"
   },
   "scripts": {
     "start": "node src/server.js",

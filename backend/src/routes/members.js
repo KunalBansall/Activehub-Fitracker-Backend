@@ -40,5 +40,6 @@ router.get("/:id", memberController.getMemberDetails);
 router.post("/",restrictWriteAccess, memberValidation, memberController.createMember);
 router.patch("/:id", restrictWriteAccess, memberController.updateMember);
 router.post("/renewal-reminder", memberController.sendRenewalReminder);
+router.delete("/:id", restrictWriteAccess, memberController.deleteMember);
 
 module.exports = router;
