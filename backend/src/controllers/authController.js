@@ -4,6 +4,7 @@ const nodemailer = require("nodemailer");
 const bcrypt = require("bcryptjs");
 const AdminLog = require("../models/AdminLog");
 const { getClientIp, getLocationByIp } = require("../config/locationHelper");
+const { sendWelcomeEmail } = require("../services/emailService");
 
 const generateToken = (admin) => {
   return jwt.sign(
@@ -57,6 +58,15 @@ exports.signup = async (req, res) => {
       deviceInfo: req.headers["user-agent"],
       timestamp: new Date(),
     });
+
+    // Send welcome email to the new gym owner/admin
+    try {
+      const emailSent = await sendWelcomeEmail(admin);
+      console.log(`Welcome email to ${admin.email} ${emailSent ? 'sent successfully' : 'failed to send'}`);
+    } catch (emailError) {
+      // Don't let email errors affect the signup process
+      console.error('Error sending welcome email:', emailError);
+    }
 
     res.status(201).json({
       _id: admin._id,

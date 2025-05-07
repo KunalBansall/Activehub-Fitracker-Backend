@@ -1044,13 +1044,13 @@ const subscriptionConfirmationTemplate = (admin, paymentDetails, planName, amoun
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">ActiveHub FlexTracker</div>
+          <div class="logo">ActiveHub FitTracker</div>
           <div>Subscription Confirmation</div>
         </div>
         <div class="content">
           <h2>Thank you for your subscription!</h2>
           <p>Dear ${admin.username || admin.email},</p>
-          <p>Your subscription to <strong>${planName}</strong> has been successfully processed. You now have full access to all features of ActiveHub FlexTracker.</p>
+          <p>Your subscription to <strong>${planName}</strong> has been successfully processed. You now have full access to all features of ActiveHub FitTracker.</p>
           
           <div class="invoice-box">
             <div class="invoice-header">
@@ -1060,7 +1060,7 @@ const subscriptionConfirmationTemplate = (admin, paymentDetails, planName, amoun
                 <div>Date: ${invoiceDate}</div>
               </div>
               <div>
-                <strong>ActiveHub FlexTracker</strong><br>
+                <strong>ActiveHub FitTracker</strong><br>
                 activehubfitracker@gmail.com<br>
                 https://activehubfitracker.onrender.com/
               </div>
@@ -1111,7 +1111,7 @@ const subscriptionConfirmationTemplate = (admin, paymentDetails, planName, amoun
           
           <div class="footer">
             <p>If you have any questions, please contact our support team at activehubfitracker@gmail.com</p>
-            <p>&copy; ${new Date().getFullYear()} ActiveHub FlexTracker. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} ActiveHub FitTracker. All rights reserved.</p>
           </div>
         </div>
       </div>
@@ -1293,16 +1293,99 @@ const sendPaymentFailedEmail = async (admin, paymentDetails, graceEndDate) => {
   }
 };
 
+// Welcome email template for new gym owners/admins
+const welcomeEmailTemplate = (admin) => {
+  return `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; padding: 20px; color: #333;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #3b82f6; margin-bottom: 5px;">Welcome to ActiveHub FitTracker!</h1>
+        <p style="font-size: 18px; color: #4b5563;">Your Ultimate Gym Management Solution</p>
+      </div>
+      
+      <div style="background-color: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin-bottom: 25px;">
+        <p style="font-size: 16px; margin: 0;">Hi ${admin.username},</p>
+        <p style="margin-top: 10px;">Thank you for choosing ActiveHub FitTracker for your gym "${admin.gymName}"! We're excited to have you on board and can't wait to help you streamline your gym operations.</p>
+      </div>
+      
+      <h2 style="color: #2563eb; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Getting Started</h2>
+      
+      <div style="margin-bottom: 25px;">
+        <p>Here are some key features to explore right away:</p>
+        
+        <ul style="padding-left: 20px; line-height: 1.6;">
+          <li><strong>Member Management:</strong> Add, edit, and track all your gym members in one place</li>
+          <li><strong>Attendance Tracking:</strong> Monitor member check-ins and analyze attendance patterns</li>
+          <li><strong>Payment Processing:</strong> Manage subscriptions and track payment history</li>
+          <li><strong>Workout Plans:</strong> Create personalized workout routines for your members</li>
+          <li><strong>Analytics Dashboard:</strong> Get insights into your gym's performance with detailed reports</li>
+        </ul>
+      </div>
+      
+      <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin-bottom: 25px;">
+        <p style="font-weight: bold; margin-top: 0;">Your 30-Day Free Trial</p>
+        <p style="margin-bottom: 0;">You're currently on a 30-day free trial that gives you access to all premium features. Enjoy exploring everything ActiveHub has to offer!</p>
+      </div>
+      
+      <h2 style="color: #2563eb; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Need Help?</h2>
+      
+      <p>We're here to support you every step of the way:</p>
+      
+      <ul style="padding-left: 20px; line-height: 1.6;">
+        <li>Check out our <a href="#" style="color: #2563eb; text-decoration: none; font-weight: bold;">Knowledge Base</a> for tutorials and guides</li>
+        <li>Email us at <a href="mailto:activehubfitracker@gmail.com" style="color: #2563eb; text-decoration: none; font-weight: bold;">activehubfitracker@gmail.com</a> with any questions</li>
+        <li>Call our support team at <strong>+91 9050207670</strong> during business hours</li>
+      </ul>
+      
+      <div style="background-color: #ecfdf5; border-radius: 8px; padding: 20px; margin: 30px 0; text-align: center;">
+        <p style="font-size: 18px; font-weight: bold; margin-top: 0; color: #059669;">A Note from Our Development Team</p>
+        <p style="font-style: italic; margin-bottom: 0;">
+          "We built ActiveHub FitTracker with passion and dedication to help gym owners like you succeed. 
+          We're constantly improving our platform based on feedback from users like you. 
+          Don't hesitate to share your thoughts and suggestions with us!"
+        </p>
+        <p style="margin-top: 15px; margin-bottom: 0;">- The ActiveHub Development Team</p>
+      </div>
+      
+      <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 14px;">
+        <p>
+          ActiveHub FitTracker<br>
+          123 Fitness Street, Wellness City<br>
+          ${new Date().getFullYear()} ActiveHub Technologies
+        </p>
+        <p>
+          <a href="#" style="color: #6b7280; text-decoration: none; margin: 0 10px;">Privacy Policy</a> | 
+          <a href="#" style="color: #6b7280; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+          <a href="#" style="color: #6b7280; text-decoration: none; margin: 0 10px;">Unsubscribe</a>
+        </p>
+      </div>
+    </div>
+  `;
+};
+
+// Send welcome email to new gym owners/admins
+const sendWelcomeEmail = async (admin) => {
+  try {
+    const subject = `Welcome to ActiveHub FitTracker, ${admin.username}!`;
+    const html = welcomeEmailTemplate(admin);
+    
+    return await sendEmail(admin.email, subject, html);
+  } catch (error) {
+    console.error('Error sending welcome email:', error);
+    return false;
+  }
+};
+
 module.exports = {
   sendEmail,
   sendOrderConfirmationEmail,
   sendAdminNotificationEmail,
   sendOrderStatusUpdateEmail,
   sendGeneralEmail,
-  sendInactivityNotification,
   sendWorkoutMotivationEmail,
   sendWorkoutSummaryEmail,
+  sendInactivityNotification,
   sendSubscriptionConfirmationEmail,
   sendSubscriptionCancelledEmail,
-  sendPaymentFailedEmail
-}; 
+  sendPaymentFailedEmail,
+  sendWelcomeEmail
+};
