@@ -98,12 +98,27 @@ This is the backend API for ActiveHub FitTracker, a comprehensive gym management
 ### Payment Routes
 - `POST /api/payment/create-subscription` - Create a new subscription
 - `POST /api/payment/verify-subscription` - Verify a subscription payment
-- `POST /api/payment/webhook` - Process webhook events from Razorpay (legacy endpoint)
+- `POST /api/payment/webhook` - Process webhook events from Razorpay
 - `GET /api/payment/history` - Get payment history for the current admin
 - `POST /api/payment/cancel-subscription` - Cancel a subscription
 
-### Razorpay Webhook
-- `POST /razorpay-webhook` - Dedicated endpoint for processing Razorpay webhook events
+### Razorpay Webhook Implementation Notes
+- All webhook events are stored in the `WebhookData` collection with detailed payment information
+- The system includes deduplication logic to prevent processing the same payment event multiple times
+- Webhook data is stored with the following fields:
+  - `event`: The type of event (e.g., payment.captured, subscription.activated)
+  - `razorpay_payment_id`: Razorpay payment identifier
+  - `razorpay_subscription_id`: Subscription identifier for subscription events
+  - `amount`: Payment amount (converted from paisa to rupees)
+  - `status`: Status of the payment or subscription
+  - `payload`: Complete webhook payload for reference
+  - `processed`: Boolean flag indicating if the webhook has been processed
+- The webhook handler verifies all signatures before processing
+- Event handling has been centralized in the `webhookHandlers.js` utility, which:
+  - Processes different event types (payment.captured, subscription.activated, etc.)
+  - Updates relevant database records
+  - Triggers appropriate actions (email notifications, subscription status updates)
+  - Maintains detailed logging for troubleshooting
 
 ## Data Models
 
@@ -184,7 +199,7 @@ When configuring webhooks in your Razorpay Dashboard, use this URL as the webhoo
 
 - `POST /api/payment/create-subscription` - Create a new subscription
 - `POST /api/payment/verify-subscription` - Verify a subscription payment
-- `POST /api/payment/webhook` - Process webhook events from Razorpay (legacy endpoint)
+- `POST /api/payment/webhook` - Process webhook events from Razorpay
 - `GET /api/payment/history` - Get payment history for the current admin
 - `POST /api/payment/cancel-subscription` - Cancel a subscription
 

@@ -30,6 +30,7 @@ const workoutRoutes = require("./routes/workouts");
 const settingsRoutes = require("./routes/settings");
 const revenueRoutes = require("./routes/revenueRoutes");
 const paymentRoutes = require("./routes/paymentsRoutes");
+const ownerRoutes = require("./routes/owner");
 
 const checkSubscription = require("./middleware/subscriptionCheck");
 
@@ -64,39 +65,15 @@ app.use(cors({
 // Logger
 app.use(morgan("dev"));
 
-// 🛑 Razorpay webhook route: must come BEFORE `express.json()`
-app.post(
-  "/razorpay-webhook",
-  express.raw({ type: "application/json" }),
-  (req, res) => {
-    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-    const signature = req.headers["x-razorpay-signature"];
-
-    const expectedSignature = crypto
-      .createHmac("sha256", webhookSecret)
-      .update(req.body)
-      .digest("hex");
-
-    if (process.env.NODE_ENV !== "production") {
-      console.log("📩 Razorpay Signature:", signature);
-      console.log("🧮 Expected Signature:", expectedSignature);
-    }
-
-    if (signature === expectedSignature) {
-      console.log("✅ Razorpay Signature Verified");
-      const data = JSON.parse(req.body);
-      // 👉 Handle payment event logic here
-
-      return res.status(200).json({ message: "Webhook verified" });
-    } else {
-      console.log("❌ Invalid Razorpay signature");
-      return res.status(400).json({ message: "Invalid signature" });
-    }
+// Use JSON parser for all routes except Razorpay webhook
+app.use((req, res, next) => {
+  // Special handling for Razorpay webhook - use raw parser
+  if (req.originalUrl === '/api/webhook/razorpay') {
+    express.raw({ type: 'application/json' })(req, res, next);
+  } else {
+    express.json()(req, res, next);
   }
-);
-
-// 🔄 Now use JSON parser for all other routes
-app.use(express.json());
+});
 
 // Subscription middleware
 app.use("/api/members", checkSubscription);
@@ -126,6 +103,11 @@ app.use("/api/workouts", workoutRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/admin/revenue", revenueRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/owner", ownerRoutes);
+
+// Direct route for Razorpay webhook
+const razorpayWebhookController = require("./controllers/razorpayWebhookController");
+app.post("/api/webhook/razorpay", razorpayWebhookController);
 
 // Root
 app.get("/", (req, res) => {

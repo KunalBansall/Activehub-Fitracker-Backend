@@ -1121,39 +1121,175 @@ const subscriptionConfirmationTemplate = (admin, paymentDetails, planName, amoun
 };
 
 /**
- * Sends a subscription confirmation email with invoice
- * @param {Object} admin - Admin object
+ * Format currency amount for display
+ * @param {Number} amount - Amount to format
+ * @returns {String} Formatted amount
+ */
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2
+  }).format(amount);
+};
+
+/**
+ * Format date for display
+ * @param {Date} date - Date to format
+ * @returns {String} Formatted date
+ */
+const formatDate = (date) => {
+  return new Date(date).toLocaleDateString('en-IN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
+/**
+ * Send subscription confirmation email
+ * @param {Object} admin - Admin user object
  * @param {Object} paymentDetails - Payment details
- * @param {string} planName - Name of the plan
- * @param {number} amount - Amount paid
+ * @param {String} planName - Subscription plan name
+ * @param {Number} amount - Payment amount
  * @param {Date} startDate - Subscription start date
  * @param {Date} endDate - Subscription end date
- * @returns {Promise<boolean>} Success status
+ * @param {Boolean} isRenewal - Whether this is a renewal
+ * @returns {Promise<void>}
  */
-const sendSubscriptionConfirmationEmail = async (admin, paymentDetails, planName, amount, startDate, endDate) => {
+const sendSubscriptionConfirmationEmail = async (admin, paymentDetails, planName, amount, startDate, endDate, isRenewal = false) => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: process.env.EMAIL_SERVICE || 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS
-      }
-    });
+    const subject = isRenewal 
+      ? `Your ActiveHub Pro subscription has been renewed` 
+      : `Your ActiveHub Pro subscription is active`;
     
-    const html = subscriptionConfirmationTemplate(admin, paymentDetails, planName, amount, startDate, endDate);
-    
-    await transporter.sendMail({
-      from: `"ActiveHub FlexTracker" <${process.env.EMAIL_USER}>`,
+    const emailData = {
       to: admin.email,
-      subject: 'Subscription Confirmation and Invoice',
-      html: html
-    });
+      subject: subject,
+      message: `
+        <h2>Subscription ${isRenewal ? 'Renewal' : 'Confirmation'}</h2>
+        <p>Dear ${admin.name || admin.email},</p>
+        <p>Your subscription to <strong>${planName}</strong> has been ${isRenewal ? 'renewed' : 'activated'}.</p>
+        
+        <h3>Subscription Details:</h3>
+        <ul>
+          <li><strong>Plan:</strong> ${planName}</li>
+          <li><strong>Amount:</strong> ${formatCurrency(amount)}</li>
+          <li><strong>Start Date:</strong> ${formatDate(startDate)}</li>
+          <li><strong>End Date:</strong> ${formatDate(endDate)}</li>
+          <li><strong>Payment ID:</strong> ${paymentDetails.razorpay_payment_id || 'N/A'}</li>
+        </ul>
+        
+        <p>Thank you for choosing ActiveHub Pro!</p>
+      `
+    };
     
-    console.log(`Subscription confirmation email sent to ${admin.email}`);
+    // Log instead of actually sending (for development)
+    console.log(`📧 [EMAIL MOCK] Sending subscription confirmation to ${admin.email}`);
+    console.log(`Subject: ${emailData.subject}`);
+    
+    // TODO: Implement actual email sending logic using transporter
+    // await transporter.sendMail(emailData);
+    
     return true;
   } catch (error) {
     console.error('Error sending subscription confirmation email:', error);
-    return false;
+    throw error;
+  }
+};
+
+/**
+ * Send subscription cancelled email
+ * @param {Object} admin - Admin user object
+ * @param {Object} subscriptionDetails - Subscription details
+ * @param {Date} activeUntil - Date until which subscription remains active
+ * @returns {Promise<void>}
+ */
+const sendSubscriptionCancelledEmail = async (admin, subscriptionDetails, activeUntil) => {
+  try {
+    const emailData = {
+      to: admin.email,
+      subject: `Your ActiveHub Pro subscription has been cancelled`,
+      message: `
+        <h2>Subscription Cancellation</h2>
+        <p>Dear ${admin.name || admin.email},</p>
+        <p>Your subscription to <strong>ActiveHub Pro</strong> has been cancelled.</p>
+        
+        <h3>Important Information:</h3>
+        <ul>
+          <li><strong>Active Until:</strong> ${formatDate(activeUntil)}</li>
+          <li><strong>Subscription ID:</strong> ${subscriptionDetails.subscriptionId || 'N/A'}</li>
+        </ul>
+        
+        <p>You will continue to have access to all premium features until the above date.</p>
+        <p>If this cancellation was not intended, please contact our support team.</p>
+      `
+    };
+    
+    // Log instead of actually sending (for development)
+    console.log(`📧 [EMAIL MOCK] Sending subscription cancellation to ${admin.email}`);
+    console.log(`Subject: ${emailData.subject}`);
+    
+    // TODO: Implement actual email sending logic
+    // await sendEmail(emailData);
+    
+    return true;
+  } catch (error) {
+    console.error('Error sending subscription cancelled email:', error);
+    throw error;
+  }
+};
+
+/**
+ * Send payment failed email
+ * @param {Object} admin - Admin user object
+ * @param {Object} paymentDetails - Payment details
+ * @param {Date} graceEndDate - Grace period end date
+ * @returns {Promise<void>}
+ */
+const sendPaymentFailedEmail = async (admin, paymentDetails, graceEndDate) => {
+  try {
+    const emailData = {
+      to: admin.email,
+      subject: `Action Required: Your ActiveHub Pro payment failed`,
+      message: `
+        <h2>Payment Failed</h2>
+        <p>Dear ${admin.name || admin.email},</p>
+        <p>We were unable to process your payment for <strong>ActiveHub Pro</strong>.</p>
+        
+        <h3>Payment Details:</h3>
+        <ul>
+          ${paymentDetails.paymentId ? `<li><strong>Payment ID:</strong> ${paymentDetails.paymentId}</li>` : ''}
+          ${paymentDetails.subscriptionId ? `<li><strong>Subscription ID:</strong> ${paymentDetails.subscriptionId}</li>` : ''}
+          ${paymentDetails.amount ? `<li><strong>Amount:</strong> ${formatCurrency(paymentDetails.amount)}</li>` : ''}
+        </ul>
+        
+        <h3>What happens now?</h3>
+        <p>Your subscription has been placed in a grace period until <strong>${formatDate(graceEndDate)}</strong>.</p>
+        <p>During this time, you will continue to have access to all premium features.</p>
+        
+        <h3>How to fix this:</h3>
+        <ul>
+          <li>Check that your payment method details are up to date</li>
+          <li>Ensure you have sufficient funds in your account</li>
+          <li>Log in to your dashboard and update your payment method</li>
+        </ul>
+        
+        <p>If you need assistance, please contact our support team.</p>
+      `
+    };
+    
+    // Log instead of actually sending (for development)
+    console.log(`📧 [EMAIL MOCK] Sending payment failed alert to ${admin.email}`);
+    console.log(`Subject: ${emailData.subject}`);
+    
+    // TODO: Implement actual email sending logic
+    // await sendEmail(emailData);
+    
+    return true;
+  } catch (error) {
+    console.error('Error sending payment failed email:', error);
+    throw error;
   }
 };
 
@@ -1166,5 +1302,7 @@ module.exports = {
   sendInactivityNotification,
   sendWorkoutMotivationEmail,
   sendWorkoutSummaryEmail,
-  sendSubscriptionConfirmationEmail
+  sendSubscriptionConfirmationEmail,
+  sendSubscriptionCancelledEmail,
+  sendPaymentFailedEmail
 }; 

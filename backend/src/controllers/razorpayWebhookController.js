@@ -2,20 +2,43 @@ const crypto = require("crypto");
 const razorpay = require("../utils/razorpay");
 const Payment = require("../models/Payments");
 const Admin = require("../models/Admin");
+const WebhookData = require("../models/WebhookEvent");
 const dateUtils = require("../utils/dateUtils");
+// Import webhook utilities
+const { storeWebhookEvent, markWebhookProcessed, isWebhookDuplicate } = require("../utils/webhookUtils");
+// Import event handlers
+const { handleRazorpayEvent } = require("../utils/webhookHandlers");
 
 /**
  * Handles Razorpay webhook events
  * This controller verifies the webhook signature and processes different payment events
+ * Implements comprehensive logging and error handling for owner visibility
  */
 module.exports = async (req, res) => {
+  // Track webhook processing start time
+  const receivedAt = new Date();
+  
+  // Check if this is a test request
+  const isTestMode = req.headers["x-test-mode"] === "true" || req.query.testMode === "true";
+  
   try {
     // Get the Razorpay signature from headers
     const razorpaySignature = req.headers["x-razorpay-signature"];
     
     if (!razorpaySignature) {
       console.log("❌ Webhook Error: Missing Razorpay signature");
-      return res.status(400).json({ message: "Missing signature" });
+      
+      // Store the failed request for owner visibility
+      await storeWebhookEvent(
+        { event: "webhook.error", payload: { error: "Missing signature", headers: req.headers } },
+        isTestMode
+      );
+      
+      return res.status(400).json({
+        success: false,
+        message: "Missing signature – possible security issue",
+        error: "x-razorpay-signature header is required"
+      });
     }
 
     // Get the webhook secret from environment variables
@@ -23,7 +46,18 @@ module.exports = async (req, res) => {
     
     if (!webhookSecret) {
       console.error("❌ Webhook Error: Webhook secret not configured");
-      return res.status(500).json({ message: "Webhook configuration error" });
+      
+      // Store the configuration error for owner visibility
+      await storeWebhookEvent(
+        { event: "webhook.error", payload: { error: "Webhook secret not configured" } },
+        isTestMode
+      );
+      
+      return res.status(500).json({
+        success: false,
+        message: "Webhook configuration error",
+        error: "RAZORPAY_WEBHOOK_SECRET not configured"
+      });
     }
 
     // Get the raw request body
@@ -46,12 +80,52 @@ module.exports = async (req, res) => {
       .digest("hex");
     
     if (expectedSignature !== razorpaySignature) {
-      console.log("⚠️ Webhook signature mismatch");
-      return res.status(400).json({ message: "Invalid signature" });
+      console.log("⚠️ Webhook signature mismatch – possible spoofed request");
+      
+      // Store the signature mismatch for owner visibility
+      await storeWebhookEvent(
+        {
+          event: "webhook.error",
+          payload: {
+            error: "Invalid signature – possible spoofed request",
+            receivedSignature: razorpaySignature.substring(0, 10) + '...' // Only store part of the signature for security
+          }
+        },
+        isTestMode
+      );
+      
+      return res.status(400).json({
+        success: false,
+        message: "Invalid signature – possible spoofed request",
+        error: "Signature verification failed"
+      });
     }
 
-    // Parse the request body if it's a buffer
-    const payload = JSON.parse(requestBody);
+    // Parse the request body if it's a string
+    let payload;
+    try {
+      payload = typeof requestBody === 'string' ? JSON.parse(requestBody) : requestBody;
+    } catch (parseError) {
+      console.error("❌ Webhook Error: Invalid JSON payload", parseError);
+      
+      // Store the parsing error for owner visibility
+      await storeWebhookEvent(
+        {
+          event: "webhook.error",
+          payload: {
+            error: "Invalid JSON payload",
+            body: requestBody.substring(0, 100) + '...' // Only store part of the body
+          }
+        },
+        isTestMode
+      );
+      
+      return res.status(400).json({
+        success: false,
+        message: "Invalid JSON payload",
+        error: parseError.message
+      });
+    }
     
     // Extract event and data
     const event = payload.event;
@@ -60,42 +134,131 @@ module.exports = async (req, res) => {
     // Log the event (without sensitive payment details)
     console.log(`📣 Razorpay webhook received: ${event}`);
     
-    // Handle different events
-    switch (event) {
-      case "payment.success":
-      case "payment.captured":
-        await handlePaymentSuccess(data);
-        break;
+    // Check for duplicate event before processing
+    const paymentId = data?.payment?.entity?.id;
+    const subscriptionId = data?.subscription?.entity?.id;
+    const eventId = paymentId || subscriptionId;
+    
+    if (eventId) {
+      const isDuplicate = await isWebhookDuplicate(eventId, event);
       
-      case "payment.failed":
-        await handlePaymentFailed(data);
-        break;
-      
-      case "subscription.activated":
-        await handleSubscriptionActivated(data);
-        break;
-      
-      case "subscription.charged":
-        await handleSubscriptionCharged(data);
-        break;
-      
-      case "subscription.halted":
-        await handleSubscriptionHalted(data);
-        break;
-      
-      case "subscription.cancelled":
-        await handleSubscriptionCancelled(data);
-        break;
-      
-      default:
-        console.log(`📩 Unhandled Razorpay event: ${event}`);
+      if (isDuplicate) {
+        console.log(`🔄 Duplicate event detected: ${event} for ID ${eventId}. Logging but skipping processing.`);
+        
+        // Store the duplicate event with flag for owner visibility
+        const webhookRecord = await storeWebhookEvent(payload, isTestMode);
+        
+        // Mark as duplicate
+        await WebhookData.findByIdAndUpdate(webhookRecord._id, {
+          duplicate: true,
+          note: `Duplicate event: ${event} for ID ${eventId}`,
+          processedAt: new Date()
+        });
+        
+        return res.status(200).json({
+          success: true,
+          message: "Webhook processed successfully (duplicate event)",
+          duplicate: true
+        });
+      }
     }
+    
+    // Store the webhook event data
+    const webhookRecord = await storeWebhookEvent(payload, isTestMode);
+    
+    // Extract and store subscription data if it's a subscription event
+    if (event.startsWith('subscription.')) {
+      const subscriptionData = {
+        eventType: event,
+        subscriptionId: data.subscription?.entity?.id || data.id,
+        status: data.subscription?.entity?.status || data.status,
+        adminId: data.subscription?.entity?.notes?.adminId || data.notes?.adminId,
+        startDate: data.subscription?.entity?.start_at ? new Date(data.subscription.entity.start_at * 1000) : null,
+        endDate: data.subscription?.entity?.end_at ? new Date(data.subscription.entity.end_at * 1000) : null,
+        createdAt: new Date()
+      };
 
-    // Always respond with 200 OK for valid webhooks
-    return res.status(200).json({ status: "success" });
+      // Extract plan name from the payload
+      const planName = data.subscription?.entity?.plan_name || 
+                      data.plan_name || 
+                      data.subscription?.entity?.plan?.item?.name ||
+                      'Unknown Plan';
+
+      // Update the webhook record with subscription data and plan name
+      await WebhookData.findByIdAndUpdate(webhookRecord._id, {
+        subscriptionData,
+        planName
+      });
+    }
+    
+    // Process the event with our centralized event handler
+    try {
+      const success = await handleRazorpayEvent(event, data);
+      
+      if (success) {
+        // Mark the webhook as processed
+        await WebhookData.findByIdAndUpdate(webhookRecord._id, {
+          processed: true,
+          processedAt: new Date(),
+          note: `Successfully processed ${event}`
+        });
+        console.log(`✅ Webhook processed successfully: ${event}`);
+      } else {
+        // Update with processing failure
+        await WebhookData.findByIdAndUpdate(webhookRecord._id, {
+          issueFlag: true,
+          errorReason: `Failed to process ${event}`,
+          note: `Event handler returned false for ${event}`
+        });
+        console.log(`⚠️ Webhook processing failed: ${event}`);
+      }
+    } catch (processingError) {
+      // Log processing error and update webhook record
+      console.error(`❌ Error processing webhook ${event}:`, processingError);
+      
+      await WebhookData.findByIdAndUpdate(webhookRecord._id, {
+        issueFlag: true,
+        errorReason: `Error: ${processingError.message}`,
+        note: `Exception during processing: ${processingError.message.substring(0, 200)}`
+      });
+    }
+    
+    // Calculate processing time
+    const processingTime = new Date() - receivedAt;
+    
+    // Always return a 200 response to Razorpay to acknowledge receipt
+    return res.status(200).json({
+      success: true,
+      message: "Webhook processed successfully",
+      webhookId: webhookRecord._id,
+      event: event,
+      processingTimeMs: processingTime
+    });
   } catch (error) {
-    console.error("❌ Webhook processing error:", error);
-    return res.status(500).json({ message: "Webhook processing failed" });
+    console.error("❌ Webhook Error:", error);
+    
+    // Try to log the error even if processing failed
+    try {
+      await storeWebhookEvent(
+        {
+          event: "webhook.error",
+          payload: {
+            error: error.message,
+            stack: error.stack,
+            requestHeaders: req.headers
+          }
+        },
+        isTestMode
+      );
+    } catch (logError) {
+      console.error("Failed to log webhook error:", logError);
+    }
+    
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
   }
 };
 
