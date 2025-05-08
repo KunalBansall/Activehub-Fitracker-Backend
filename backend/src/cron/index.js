@@ -1,7 +1,24 @@
 const cron = require('node-cron');
 const checkInactiveMembers = require('./inactivityCheck');
 const checkSubscriptionStatuses = require('./subscriptionStatusCheck');
-const { processMonthlyReports } = require('../services/monthlyRevenueService');
+const { processMonthlyReports, isLastDayOfMonth } = require('../services/monthlyRevenueService');
+const { sendWeeklyWorkoutSummaryEmails, sendWorkoutMotivationEmails } = require('../services/workoutEmailService');
+
+/**
+ * Force run the monthly reports regardless of date
+ * For testing or manual triggering
+ */
+const forceRunMonthlyReports = async () => {
+  console.log('🔄 Manually triggering monthly revenue reports...');
+  try {
+    await processMonthlyReports(true); // Pass true to force run regardless of date
+    console.log('✅ Manual monthly reports completed successfully');
+    return true;
+  } catch (error) {
+    console.error('❌ Error running manual monthly reports:', error);
+    return false;
+  }
+};
 
 /**
  * Setup all cron jobs for the application
@@ -13,19 +30,56 @@ const setupCronJobs = () => {
     checkInactiveMembers();
   });
 
-  // Process monthly revenue reports at 8:00 PM on the last day of each month
-  // The "28-31" pattern will run on days 28,29,30,31 of each month,
-  // but our internal isLastDayOfMonth() function checks if it's actually the last day
-  // This is a more reliable approach than trying to determine the last day in the cron pattern
-  cron.schedule('0 20 28-31 * *', () => {
-    console.log('Checking for monthly revenue reports...');
-    processMonthlyReports();
+  // Run a daily check at 8:00 PM to see if it's the last day of the month
+  // This approach is more reliable than the previous 28-31 pattern
+  cron.schedule('0 20 * * *', async () => {
+    console.log('Checking if today is the last day of the month...');
+    if (isLastDayOfMonth()) {
+      console.log('✅ Today is the last day of the month. Running monthly reports...');
+      try {
+        const successCount = await processMonthlyReports();
+        console.log(`✅ Monthly reports completed. Successfully sent to ${successCount} gyms.`);
+      } catch (error) {
+        console.error('❌ Error running monthly reports:', error);
+      }
+    } else {
+      console.log('❌ Today is not the last day of the month. Skipping monthly reports.');
+    }
   });
 
-  // Also run reports at 11:30 PM on the last day as a backup in case the earlier job fails
-  cron.schedule('30 23 28-31 * *', () => {
-    console.log('Running backup monthly revenue report check...');
-    processMonthlyReports();
+  // Also run a backup check at 11:30 PM every day
+  // This ensures we don't miss the last day due to any timezone or date calculation issues
+  cron.schedule('30 23 * * *', () => {
+    console.log('Running backup check for monthly reports...');
+    if (isLastDayOfMonth()) {
+      console.log('✅ Today is the last day of the month. Running backup monthly reports...');
+      processMonthlyReports();
+    } else {
+      console.log('❌ Today is not the last day of the month. Skipping backup monthly reports.');
+    }
+  });
+  
+  // Send workout summary emails every Sunday at 9:00 AM
+  cron.schedule('0 9 * * 0', async () => {
+    console.log('🏃‍♂️ Starting Sunday workout summary emails...');
+    try {
+      const successCount = await sendWeeklyWorkoutSummaryEmails();
+      console.log(`✅ Workout summary emails completed. Sent ${successCount} emails.`);
+    } catch (error) {
+      console.error('❌ Error sending workout summary emails:', error);
+    }
+  });
+  
+  // Send workout motivation emails every Sunday at 6:00 PM
+  // This is sent later in the day to members with low engagement
+  cron.schedule('0 18 * * 0', async () => {
+    console.log('💪 Starting Sunday workout motivation emails for low-engagement members...');
+    try {
+      const successCount = await sendWorkoutMotivationEmails();
+      console.log(`✅ Workout motivation emails completed. Sent ${successCount} emails.`);
+    } catch (error) {
+      console.error('❌ Error sending workout motivation emails:', error);
+    }
   });
 
   // Check subscription statuses daily at midnight
@@ -37,4 +91,7 @@ const setupCronJobs = () => {
   console.log('Cron jobs scheduled successfully');
 };
 
-module.exports = setupCronJobs; 
+module.exports = {
+  setupCronJobs,
+  forceRunMonthlyReports
+}; 

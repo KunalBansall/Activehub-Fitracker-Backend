@@ -141,7 +141,7 @@ exports.verifySubscription = async (req, res) => {
         method: "Razorpay"
       };
       
-      await sendSubscriptionConfirmationEmail(
+      await subscriptionConfirmationTemplate(
         admin,
         paymentDetails,
         "ActiveHub Pro",

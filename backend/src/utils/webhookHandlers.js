@@ -436,6 +436,153 @@ const handleSubscriptionCancelled = async (data) => {
 };
 
 /**
+ * Handle subscription authenticated event
+ * @param {Object} data - Subscription event payload
+ * @returns {Promise<void>}
+ */
+const handleSubscriptionAuthenticated = async (data) => {
+  try {
+    console.log("🔐 Processing subscription.authenticated event");
+    const subscriptionEntity = data.subscription?.entity || {};
+    const subscriptionId = subscriptionEntity.id;
+    
+    if (!subscriptionId) {
+      console.error("Missing subscription ID in subscription.authenticated event");
+      return;
+    }
+    
+    // Log the authentication success
+    console.log(`Subscription ${subscriptionId} authenticated successfully`);
+    
+    // Find admin associated with this subscription
+    const adminId = subscriptionEntity.notes?.adminId;
+    if (adminId) {
+      const admin = await Admin.findById(adminId);
+      if (admin) {
+        // Update admin record with authentication status
+        await Admin.findByIdAndUpdate(
+          adminId,
+          {
+            subscriptionAuthStatus: "authenticated",
+            subscriptionAuthDate: new Date()
+          }
+        );
+        console.log(`Admin ${adminId} subscription authentication status updated`);
+      }
+    }
+  } catch (error) {
+    console.error("Error handling subscription.authenticated event:", error);
+  }
+};
+
+/**
+ * Handle refund created event
+ * @param {Object} data - Refund event payload
+ * @returns {Promise<void>}
+ */
+const handleRefundCreated = async (data) => {
+  try {
+    console.log("💸 Processing refund.created event");
+    const refundEntity = data.refund?.entity || {};
+    const refundId = refundEntity.id;
+    const paymentId = refundEntity.payment_id;
+    
+    if (!refundId || !paymentId) {
+      console.error("Missing refund ID or payment ID in refund.created event");
+      return;
+    }
+    
+    // Find the payment record
+    const payment = await Payment.findOne({ razorpay_payment_id: paymentId });
+    
+    if (!payment) {
+      console.log(`No associated payment record found for payment ${paymentId}`);
+      return;
+    }
+    
+    // Update payment with refund information
+    await Payment.findByIdAndUpdate(
+      payment._id,
+      {
+        refundStatus: "initiated",
+        refundId: refundId,
+        refundAmount: refundEntity.amount / 100, // Convert from paisa to rupees
+        refundReason: refundEntity.notes?.reason || "Refund initiated",
+        refundCreatedAt: new Date()
+      }
+    );
+    
+    console.log(`Payment ${paymentId} updated with refund information`);
+  } catch (error) {
+    console.error("Error handling refund.created event:", error);
+  }
+};
+
+/**
+ * Handle refund processed event
+ * @param {Object} data - Refund event payload
+ * @returns {Promise<void>}
+ */
+const handleRefundProcessed = async (data) => {
+  try {
+    console.log("✅ Processing refund.processed event");
+    const refundEntity = data.refund?.entity || {};
+    const refundId = refundEntity.id;
+    const paymentId = refundEntity.payment_id;
+    
+    if (!refundId || !paymentId) {
+      console.error("Missing refund ID or payment ID in refund.processed event");
+      return;
+    }
+    
+    // Find the payment record
+    const payment = await Payment.findOne({ razorpay_payment_id: paymentId });
+    
+    if (!payment) {
+      console.log(`No associated payment record found for payment ${paymentId}`);
+      return;
+    }
+    
+    // Update payment with completed refund status
+    await Payment.findByIdAndUpdate(
+      payment._id,
+      {
+        refundStatus: "completed",
+        refundProcessedAt: new Date(),
+        status: "refunded" // Update the overall payment status
+      }
+    );
+    
+    console.log(`Refund for payment ${paymentId} has been processed successfully`);
+    
+    // If this was a subscription payment, update the admin's subscription status
+    if (payment.razorpay_subscription_id && payment.adminId) {
+      // Check if this was the most recent payment for this subscription
+      const latestPayment = await Payment.findOne({
+        razorpay_subscription_id: payment.razorpay_subscription_id,
+        status: { $ne: "refunded" }
+      }).sort({ createdAt: -1 });
+      
+      // If no other valid payments exist, update admin subscription status
+      if (!latestPayment) {
+        await Admin.findByIdAndUpdate(
+          payment.adminId,
+          {
+            subscriptionStatus: "cancelled",
+            subscriptionCancelReason: "Payment refunded",
+            subscriptionEndDate: new Date() // End subscription immediately
+          }
+        );
+        
+        console.log(`Admin ${payment.adminId} subscription cancelled due to refund`);
+      }
+    }
+  } catch (error) {
+    console.error("Error handling refund.processed event:", error);
+  }
+};
+
+/**
  * Handle Razorpay webhook events
  * @param {String} event - The event type
  * @param {Object} data - The event payload
@@ -462,6 +609,10 @@ const handleRazorpayEvent = async (event, data) => {
       case "subscription.activated":
         await handleSubscriptionActivated(data);
         break;
+      
+      case "subscription.authenticated":
+        await handleSubscriptionAuthenticated(data);
+        break;
         
       case "subscription.charged":
       case "subscription.renewed":
@@ -475,6 +626,14 @@ const handleRazorpayEvent = async (event, data) => {
       case "subscription.cancelled":
       case "subscription.completed":
         await handleSubscriptionCancelled(data);
+        break;
+      
+      case "refund.created":
+        await handleRefundCreated(data);
+        break;
+        
+      case "refund.processed":
+        await handleRefundProcessed(data);
         break;
         
       default:
@@ -494,7 +653,10 @@ module.exports = {
   handlePaymentCaptured,
   handlePaymentFailed,
   handleSubscriptionActivated,
+  handleSubscriptionAuthenticated,
   handleSubscriptionCharged,
   handleSubscriptionHalted,
-  handleSubscriptionCancelled
+  handleSubscriptionCancelled,
+  handleRefundCreated,
+  handleRefundProcessed
 }; 

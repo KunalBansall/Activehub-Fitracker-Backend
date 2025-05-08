@@ -7,7 +7,7 @@ const crypto = require("crypto");
 require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
 
 const connectDB = require("./config/database");
-const setupCronJobs = require('./cron');
+const { setupCronJobs } = require('./cron');
 
 // Routes
 const authRoutes = require("./routes/auth");
@@ -37,6 +37,9 @@ const checkSubscription = require("./middleware/subscriptionCheck");
 const app = express();
 connectDB();
 setupCronJobs();
+
+// Trust proxy - needed for X-Forwarded-For header in rate limiting
+app.set('trust proxy', 1);
 
 // Security
 app.use(helmet());

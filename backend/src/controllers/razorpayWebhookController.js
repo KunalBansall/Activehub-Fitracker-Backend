@@ -322,7 +322,6 @@ async function handlePaymentFailed(data) {
     
     console.log(`❌ Payment failed: ${paymentId}`);
     
-    // Update payment record as failed
     await Payment.updateOne(
       { razorpay_payment_id: paymentId },
       { status: "failed" }
