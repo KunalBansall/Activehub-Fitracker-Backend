@@ -6,7 +6,8 @@ const {
   addPhoto,
   removePhoto,
   updateProfilePhoto,
-  getAllGyms
+  getAllGyms,
+  markTourCompleted
 } = require("../controllers/adminController");
 const { authenticateAdmin } = require("../middleware/auth"); // Middleware for authentication
 const {restrictWriteAccess} = require("../middleware/subscriptionAccess");
@@ -28,6 +29,9 @@ router.delete("/photos/:photoId", authenticateAdmin,restrictWriteAccess, removeP
 
 // PUT /profile-photo - Update the admin's profile photo
 router.put("/profile-photo", authenticateAdmin, updateProfilePhoto);
+
+// POST /tour-completed - Mark the onboarding tour as completed
+router.post("/tour-completed", authenticateAdmin, markTourCompleted);
 
 // GET /gyms - Get all gyms
 router.get("/gyms", authenticateAdmin, getAllGyms);

@@ -212,18 +212,40 @@ exports.updateProfilePhoto = async (req, res) => {
 // Get All Gyms
 exports.getAllGyms = async (req, res) => {
   try {
-    // Only retrieve the needed fields for each gym
-    const gyms = await Admin.find({}, 'gymName _id').sort({ gymName: 1 });
-    
-    // Format the response
-    const formattedGyms = gyms.map(gym => ({
-      _id: gym._id,
-      gymName: gym.gymName
-    }));
-    
-    return res.status(200).json({ gyms: formattedGyms });
+    const gyms = await Admin.find({}, { _id: 1, gymName: 1, email: 1 });
+    res.status(200).json(gyms);
   } catch (error) {
     console.error('Error fetching gyms:', error);
-    return res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Error fetching gyms', error: error.message });
+  }
+};
+
+// Mark onboarding tour as completed
+exports.markTourCompleted = async (req, res) => {
+  try {
+    const { adminId } = req.body;
+    
+    if (!adminId) {
+      return res.status(400).json({ message: 'Admin ID is required' });
+    }
+    
+    // Update the admin document to mark the tour as completed
+    const updatedAdmin = await Admin.findByIdAndUpdate(
+      adminId,
+      { hasCompletedTour: true },
+      { new: true }
+    );
+    
+    if (!updatedAdmin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    
+    res.status(200).json({
+      message: 'Tour marked as completed successfully',
+      hasCompletedTour: updatedAdmin.hasCompletedTour
+    });
+  } catch (error) {
+    console.error('Error marking tour as completed:', error);
+    res.status(500).json({ message: 'Error marking tour as completed', error: error.message });
   }
 };

@@ -96,6 +96,10 @@ const adminSchema = new mongoose.Schema({
   subscriptionEndDate: {
     type: Date, // only used when in 'active' status
   },
+  hasCompletedTour: {
+    type: Boolean,
+    default: false
+  },
   razorpaySubscriptionId: {
     type: String,
   },
