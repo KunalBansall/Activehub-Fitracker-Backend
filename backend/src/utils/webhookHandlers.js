@@ -5,6 +5,133 @@ const { sendSubscriptionConfirmationEmail, sendSubscriptionCancelledEmail, sendP
 const razorpay = require('./razorpay');
 
 /**
+ * Handle payment authorized event
+ * @param {Object} data - Payment event payload
+ * @returns {Promise<void>}
+ */
+const handlePaymentAuthorized = async (data) => {
+  try {
+    console.log(" Processing payment.authorized event");
+    const paymentEntity = data.payment?.entity || {};
+    const paymentId = paymentEntity.id;
+    
+    if (!paymentId) {
+      console.error("Missing payment ID in payment.authorized event");
+      return;
+    }
+    
+    // Find or create payment record
+    let payment = await Payment.findOne({ razorpay_payment_id: paymentId });
+    
+    if (!payment) {
+      console.log(`Creating new payment record for payment ${paymentId}`);
+      
+      // Extract admin ID from notes or metadata
+      const adminId = paymentEntity.notes?.admin_id || paymentEntity.notes?.adminId;
+      
+      if (!adminId) {
+        console.error(`No admin ID found in payment ${paymentId} notes`);
+        return;
+      }
+      
+      // Create new payment record
+      payment = new Payment({
+        adminId: adminId,
+        razorpay_payment_id: paymentId,
+        amount: paymentEntity.amount / 100, // Convert from paisa to rupees
+        status: "authorized",
+        method: paymentEntity.method || "razorpay",
+        razorpay_subscription_id: paymentEntity.subscription_id,
+        createdAt: new Date()
+      });
+      
+      await payment.save();
+      console.log(`Created payment record for ${paymentId}`);
+    } else {
+      // Update existing payment record
+      await Payment.updateOne(
+        { razorpay_payment_id: paymentId },
+        { 
+          status: "authorized",
+          amount: paymentEntity.amount / 100, // Convert from paisa to rupees
+          method: paymentEntity.method || "razorpay"
+        }
+      );
+    }
+    
+    // Get subscription details if available
+    const subscriptionId = paymentEntity.subscription_id;
+    if (subscriptionId) {
+      try {
+        // Fetch subscription from Razorpay
+        const subscription = await razorpay.subscriptions.fetch(subscriptionId);
+        
+        // Fetch admin details
+        const admin = await Admin.findById(payment.adminId);
+        
+        if (!admin) {
+          console.error(`Admin not found for payment ${paymentId}`);
+          return;
+        }
+        
+        // Calculate subscription dates
+        const { startDate, endDate } = dateUtils.calculateSubscriptionDates(
+          admin.subscriptionStatus,
+          admin.trialEndDate,
+          admin.graceEndDate
+        );
+        
+        // Update admin subscription status
+        await Admin.findByIdAndUpdate(
+          payment.adminId,
+          {
+            subscriptionStatus: "active",
+            subscriptionEndDate: endDate,
+            razorpaySubscriptionId: subscriptionId,
+            $push: { 
+              paymentHistory: {
+                paymentId: paymentId,
+                amount: paymentEntity.amount / 100,
+                plan: "ActiveHub Pro",
+                startDate: startDate,
+                endDate: endDate,
+                status: "authorized",
+                createdAt: new Date()
+              }
+            }
+          }
+        );
+        
+        console.log(`Admin ${payment.adminId} subscription activated/renewed until ${endDate.toISOString()}`);
+        
+        // Send confirmation email
+        try {
+          await sendSubscriptionConfirmationEmail(
+            admin,
+            {
+              razorpay_payment_id: paymentId,
+              razorpay_subscription_id: subscriptionId,
+              method: paymentEntity.method || "Razorpay"
+            },
+            "ActiveHub Pro",
+            paymentEntity.amount / 100,
+            startDate,
+            endDate
+          );
+          console.log(`Subscription confirmation email sent to ${admin.email}`);
+        } catch (emailError) {
+          console.error(`Error sending confirmation email: ${emailError.message}`);
+        }
+      } catch (error) {
+        console.error(`Error processing subscription for payment ${paymentId}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error("Error handling payment.authorized event:", error);
+  }
+};
+
+/**
  * Handle payment captured event
  * @param {Object} data - Payment event payload
  * @returns {Promise<void>}
@@ -593,7 +720,8 @@ const handleRazorpayEvent = async (event, data) => {
     switch (event) {
       case "payment.authorized":
         // Payment is authorized but not captured yet
-        console.log("✅ Payment authorized, waiting for capture");
+        console.log("✅ Payment authorized, processing subscription");
+        await handlePaymentAuthorized(data);
         break;
         
       case "payment.captured":
@@ -650,6 +778,7 @@ const handleRazorpayEvent = async (event, data) => {
 
 module.exports = {
   handleRazorpayEvent,
+  handlePaymentAuthorized,
   handlePaymentCaptured,
   handlePaymentFailed,
   handleSubscriptionActivated,
