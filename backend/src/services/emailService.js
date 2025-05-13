@@ -460,7 +460,7 @@ const sendInactivityNotification = async (member, gymName, message, senderEmail 
         <p>Remember, consistency is key to achieving your fitness goals. Even a short workout is better than no workout!</p>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="#" style="background-color: #e74c3c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Come Back & Book a Class</a>
+          <a href="${process.env.FRONTEND_URL}/memberlogin" style="background-color: #e74c3c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Come back </a>
         </div>
         
         <p>If you're facing any challenges or have questions about your membership, please don't hesitate to reach out.</p>
@@ -491,111 +491,194 @@ const sendInactivityNotification = async (member, gymName, message, senderEmail 
   }
 };
 
-const sendSubscriptionCancelledEmail = async (admin, subscriptionDetails, activeUntil) => {
+/**
+ * Format date for display in emails
+ * @param {Date} date - Date to format
+ * @returns {string} Formatted date string
+ */
+const formatDate = (date) => {
+  if (!date) return 'N/A';
   try {
-    const subject = `Your ActiveHub Pro subscription has been cancelled`;
-    
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h1 style="color: #333;">ActiveHub</h1>
-        </div>
-        
-        <h2 style="color: #e74c3c;">Subscription Cancelled</h2>
-        <p>Dear ${admin.name || admin.email},</p>
-        <p>Your subscription to <strong>ActiveHub Pro</strong> has been cancelled.</p>
-        
-        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <h3 style="color: #555; margin-top: 0;">Subscription Details:</h3>
-          <p><strong>Subscription ID:</strong> ${subscriptionDetails.subscriptionId || 'N/A'}</p>
-          <p><strong>Active Until:</strong> ${formatDate(activeUntil)}</p>
-        </div>
-        
-        <p>You will continue to have access to all ActiveHub Pro features until ${formatDate(activeUntil)}.</p>
-        <p>If you did not request this cancellation or wish to reactivate your subscription, please contact our support team.</p>
-        
-        <p>Thank you for using ActiveHub Pro!</p>
-        
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #777; font-size: 12px;">
-          <p>  ${new Date().getFullYear()} ActiveHub. All rights reserved.</p>
-        </div>
-      </div>
-    `;
-    
-    console.log(` Sending subscription cancellation to ${admin.email}`);
-    
-    // Send the actual email
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: admin.email,
-      subject: subject,
-      html: html
+    return new Date(date).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
     });
-    
-    return true;
-  } catch (error) {
-    console.error('Error sending subscription cancelled email:', error);
-    throw error;
+  } catch (e) {
+    console.error('Error formatting date:', e);
+    return date.toString();
   }
 };
 
-const sendPaymentFailedEmail = async (admin, paymentDetails, graceEndDate) => {
+/**
+ * Format currency for display in emails
+ * @param {number} amount - Amount to format
+ * @returns {string} Formatted currency string
+ */
+const formatCurrency = (amount) => {
+  if (amount === null || amount === undefined) return 'N/A';
   try {
-    const subject = `Payment Failed - Action Required for Your ActiveHub Pro Subscription`;
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  } catch (e) {
+    console.error('Error formatting currency:', e);
+    return `₹${amount}`;
+  }
+};
+
+/**
+ * Send subscription cancellation email
+ * @param {Object} admin - Admin user object
+ * @param {Object} subscriptionDetails - Subscription details
+ * @param {Date} activeUntil - Date until subscription remains active
+ * @returns {Promise<boolean>} Success status
+ */
+const sendSubscriptionCancelledEmail = async (admin, subscriptionDetails, activeUntil) => {
+  try {
+    if (!admin || !admin.email) {
+      console.error('Missing admin or email for subscription cancellation email');
+      return false;
+    }
+    
+    const subject = `Your ActiveHub Pro subscription has been cancelled`;
     
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h1 style="color: #333;">ActiveHub</h1>
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); background: linear-gradient(to bottom, #ffffff, #f9f9f9);">
+        <div style="text-align: center; margin-bottom: 25px;">
+          <h1 style="color: #333; font-size: 28px; margin-bottom: 5px;">ActiveHub</h1>
+          <div style="width: 80px; height: 4px; background: linear-gradient(to right, #e74c3c, #ff9f43); margin: 0 auto;"></div>
         </div>
         
-        <h2 style="color: #e74c3c;">Payment Failed</h2>
-        <p>Dear ${admin.name || admin.email},</p>
-        <p>We were unable to process your payment for your ActiveHub Pro subscription.</p>
+        <h2 style="color: #e74c3c; font-size: 24px; text-align: center;">Subscription Cancelled</h2>
+        <p style="font-size: 16px; line-height: 1.6;">Dear <strong>${admin.name || admin.email}</strong>,</p>
+        <p style="font-size: 16px; line-height: 1.6;">Your subscription to <strong>ActiveHub Pro</strong> has been cancelled.</p>
         
-        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <h3 style="color: #555; margin-top: 0;">Payment Details:</h3>
-          <p><strong>Payment ID:</strong> ${paymentDetails.paymentId || 'N/A'}</p>
-          <p><strong>Subscription ID:</strong> ${paymentDetails.subscriptionId || 'N/A'}</p>
-          ${paymentDetails.amount ? `<p><strong>Amount:</strong> ${formatCurrency(paymentDetails.amount)}</p>` : ''}
+        <div style="background: linear-gradient(to right, #f9f9f9, #f1f1f1); padding: 20px; border-left: 4px solid #e74c3c; border-radius: 5px; margin: 25px 0;">
+          <h3 style="color: #555; margin-top: 0;">Subscription Details:</h3>
+          <p style="margin-bottom: 10px;"><strong>Subscription ID:</strong> ${subscriptionDetails.subscriptionId || 'N/A'}</p>
+          <p style="margin-bottom: 10px;"><strong>Active Until:</strong> ${formatDate(activeUntil)}</p>
         </div>
         
-        <div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
-          <p><strong>Important:</strong> Your subscription has been placed in a grace period until ${formatDate(graceEndDate)}.</p>
-          <p>You will continue to have access to all ActiveHub Pro features during this time.</p>
+        <div style="background-color: #f0f8ff; padding: 15px; border-radius: 5px; margin: 25px 0;">
+          <p style="font-size: 16px; line-height: 1.6; margin: 0;">You will continue to have access to all ActiveHub Pro features until <strong>${formatDate(activeUntil)}</strong>.</p>
         </div>
         
-        <h3>What You Need to Do:</h3>
-        <ol>
-          <li>Check your payment method details in your account settings</li>
-          <li>Ensure your card has sufficient funds</li>
-          <li>Update your payment information if necessary</li>
-        </ol>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.FRONTEND_URL}/admin/billing" style="background: linear-gradient(to right, #3498db, #2980b9); color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block; box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3); transition: all 0.3s ease;">REACTIVATE SUBSCRIPTION</a>
+        </div>
         
-        <p>If you need any assistance, please contact our support team.</p>
+        <p style="font-size: 16px; line-height: 1.6;">If you did not request this cancellation or need any assistance, our support team is always here to help.</p>
         
-        <p>Thank you for using ActiveHub Pro!</p>
+        <p style="font-size: 16px; line-height: 1.6;">Thank you for using ActiveHub Pro!</p>
+        
+        <p style="font-size: 16px; line-height: 1.6;">Best regards,<br>The ActiveHub Team</p>
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #777; font-size: 12px;">
-          <p>  ${new Date().getFullYear()} ActiveHub. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} ActiveHub. All rights reserved.</p>
         </div>
       </div>
     `;
     
-    console.log(` Sending payment failed notification to ${admin.email}`);
+    console.log(`📧 Sending subscription cancellation to ${admin.email}`);
     
     // Send the actual email
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    const info = await transporter.sendMail({
+      from: `"ActiveHub" <${process.env.EMAIL_USER}>`,
       to: admin.email,
       subject: subject,
       html: html
     });
     
+    console.log(`✅ Subscription cancellation email sent to ${admin.email}, ID: ${info.messageId}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending subscription cancelled email:', error);
+    // Return false instead of throwing to prevent webhook handler failures
+    return false;
+  }
+};
+
+/**
+ * Send payment failed email
+ * @param {Object} admin - Admin user object
+ * @param {Object} paymentDetails - Payment details
+ * @param {Date} graceEndDate - End date of grace period
+ * @returns {Promise<boolean>} Success status
+ */
+const sendPaymentFailedEmail = async (admin, paymentDetails, graceEndDate) => {
+  try {
+    if (!admin || !admin.email) {
+      console.error('Missing admin or email for payment failed email');
+      return false;
+    }
+    
+    const subject = `Payment Failed - Action Required for Your ActiveHub Pro Subscription`;
+    
+    const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); background: linear-gradient(to bottom, #ffffff, #f9f9f9);">
+        <div style="text-align: center; margin-bottom: 25px;">
+          <h1 style="color: #333; font-size: 28px; margin-bottom: 5px;">ActiveHub</h1>
+          <div style="width: 80px; height: 4px; background: linear-gradient(to right, #e74c3c, #ff9f43); margin: 0 auto;"></div>
+        </div>
+        
+        <h2 style="color: #e74c3c; font-size: 24px; text-align: center;">Payment Failed</h2>
+        <p style="font-size: 16px; line-height: 1.6;">Dear <strong>${admin.name || admin.email}</strong>,</p>
+        <p style="font-size: 16px; line-height: 1.6;">We were unable to process your payment for your ActiveHub Pro subscription.</p>
+        
+        <div style="background: linear-gradient(to right, #f9f9f9, #f1f1f1); padding: 20px; border-left: 4px solid #e74c3c; border-radius: 5px; margin: 25px 0;">
+          <h3 style="color: #555; margin-top: 0;">Payment Details:</h3>
+          <p style="margin-bottom: 10px;"><strong>Payment ID:</strong> ${paymentDetails.paymentId || 'N/A'}</p>
+          <p style="margin-bottom: 10px;"><strong>Subscription ID:</strong> ${paymentDetails.subscriptionId || 'N/A'}</p>
+          ${paymentDetails.amount ? `<p style="margin-bottom: 10px;"><strong>Amount:</strong> ${formatCurrency(paymentDetails.amount)}</p>` : ''}
+        </div>
+        
+        <div style="background-color: #fff3cd; padding: 20px; border-left: 4px solid #ffc107; border-radius: 5px; margin: 25px 0;">
+          <p style="font-size: 16px; line-height: 1.6; margin: 0;"><strong>Important:</strong> Your subscription has been placed in a grace period until <strong>${formatDate(graceEndDate)}</strong>.</p>
+          <p style="font-size: 16px; line-height: 1.6; margin-top: 10px;">You will continue to have access to all ActiveHub Pro features during this time.</p>
+        </div>
+        
+        <h3 style="color: #333; font-size: 20px;">What You Need to Do:</h3>
+        <ol style="font-size: 16px; line-height: 1.6; padding-left: 25px;">
+          <li style="margin-bottom: 10px;">Check your payment method details in your account settings</li>
+          <li style="margin-bottom: 10px;">Ensure your card has sufficient funds</li>
+          <li style="margin-bottom: 10px;">Update your payment information if necessary</li>
+        </ol>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.FRONTEND_URL}/admin/billing" style="background: linear-gradient(to right, #e74c3c, #ff9f43); color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block; box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3); transition: all 0.3s ease;">UPDATE PAYMENT METHOD</a>
+        </div>
+        
+        <p style="font-size: 16px; line-height: 1.6;">If you need any assistance, our support team is always here to help.</p>
+        
+        <p style="font-size: 16px; line-height: 1.6;">Thank you for using ActiveHub Pro!</p>
+        
+        <p style="font-size: 16px; line-height: 1.6;">Best regards,<br>The ActiveHub Team</p>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #777; font-size: 12px;">
+          <p>© ${new Date().getFullYear()} ActiveHub. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+    
+    console.log(`📧 Sending payment failed notification to ${admin.email}`);
+    
+    // Send the actual email
+    const info = await transporter.sendMail({
+      from: `"ActiveHub" <${process.env.EMAIL_USER}>`,
+      to: admin.email,
+      subject: subject,
+      html: html
+    });
+    
+    console.log(`✅ Payment failed email sent to ${admin.email}, ID: ${info.messageId}`);
     return true;
   } catch (error) {
     console.error('Error sending payment failed email:', error);
-    throw error;
+    // Return false instead of throwing to prevent webhook handler failures
+    return false;
   }
 };
 
@@ -1039,27 +1122,49 @@ const subscriptionConfirmationTemplate = (admin, paymentDetails, planName, amoun
       day: 'numeric'
     });
   };
-  
+
+  const formatCurrency = (amount) => {
+    return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee;">
-      <div style="text-align: center; margin-bottom: 20px;">
-        <h1 style="color: #333;">ActiveHub</h1>
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); background: linear-gradient(to bottom, #ffffff, #f9f9f9);">
+      <div style="text-align: center; margin-bottom: 25px;">
+        <h1 style="color: #333; font-size: 28px; margin-bottom: 5px;">ActiveHub</h1>
+        <div style="width: 80px; height: 4px; background: linear-gradient(to right, #27ae60, #2ecc71); margin: 0 auto;"></div>
       </div>
       
-      <h2 style="color: #3498db;">Subscription Confirmation</h2>
-      <p>Dear ${admin.name || admin.email},</p>
-      <p>Your subscription to <strong>${planName}</strong> has been activated.</p>
+      <h2 style="color: #27ae60; font-size: 24px; text-align: center;">Subscription Confirmed</h2>
+      <p style="font-size: 16px; line-height: 1.6;">Dear <strong>${admin.name || admin.email}</strong>,</p>
+      <p style="font-size: 16px; line-height: 1.6;">Thank you for subscribing to <strong>${planName}</strong>. Your subscription is now active.</p>
       
-      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+      <div style="background: linear-gradient(to right, #f9f9f9, #f1f1f1); padding: 20px; border-left: 4px solid #27ae60; border-radius: 5px; margin: 25px 0;">
         <h3 style="color: #555; margin-top: 0;">Subscription Details:</h3>
-        <p><strong>Plan:</strong> ${planName}</p>
-        <p><strong>Amount:</strong> ₹${amount}</p>
-        <p><strong>Start Date:</strong> ${formatDate(startDate)}</p>
-        <p><strong>End Date:</strong> ${formatDate(endDate)}</p>
-        <p><strong>Payment ID:</strong> ${paymentDetails.razorpay_payment_id || 'N/A'}</p>
+        <p style="margin-bottom: 10px;"><strong>Plan:</strong> ${planName}</p>
+        <p style="margin-bottom: 10px;"><strong>Amount Paid:</strong> ${formatCurrency(amount)}</p>
+        <p style="margin-bottom: 10px;"><strong>Payment ID:</strong> ${paymentDetails.razorpay_payment_id || 'N/A'}</p>
+        <p style="margin-bottom: 10px;"><strong>Subscription ID:</strong> ${paymentDetails.razorpay_subscription_id || 'N/A'}</p>
+        <p style="margin-bottom: 10px;"><strong>Payment Method:</strong> ${paymentDetails.method || 'Razorpay'}</p>
+        <p style="margin-bottom: 10px;"><strong>Start Date:</strong> ${formatDate(startDate)}</p>
+        <p style="margin-bottom: 10px;"><strong>End Date:</strong> ${formatDate(endDate)}</p>
       </div>
       
-      <p>Thank you for choosing ActiveHub Pro!</p>
+      <div style="background-color: #e8f5e9; padding: 15px; border-radius: 5px; margin: 25px 0; text-align: center;">
+        <h3 style="color: #27ae60; margin-top: 0;">🎉 Subscription Successfully Activated</h3>
+        <p style="font-style: italic; color: #555;">You now have full access to all ActiveHub Pro features!</p>
+      </div>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${process.env.FRONTEND_URL}/admin/dashboard" style="background: linear-gradient(to right, #27ae60, #2ecc71); color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block; box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3); transition: all 0.3s ease;">GO TO DASHBOARD</a>
+      </div>
+      
+      <p style="font-size: 16px; line-height: 1.6;">You can manage your subscription anytime from your account settings.</p>
+      
+      <p style="font-size: 16px; line-height: 1.6;">If you have any questions or need assistance, our support team is always here to help.</p>
+      
+      <p style="font-size: 16px; line-height: 1.6;">Thank you for choosing ActiveHub Pro!</p>
+      
+      <p style="font-size: 16px; line-height: 1.6;">Best regards,<br>The ActiveHub Team</p>
       
       <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #777; font-size: 12px;">
         <p>© ${new Date().getFullYear()} ActiveHub. All rights reserved.</p>
@@ -1081,25 +1186,33 @@ const subscriptionConfirmationTemplate = (admin, paymentDetails, planName, amoun
  */
 const sendSubscriptionConfirmationEmail = async (admin, paymentDetails, planName, amount, startDate, endDate, isRenewal = false) => {
   try {
+    if (!admin || !admin.email) {
+      console.error('Missing admin or email for subscription confirmation email');
+      return false;
+    }
+    
     const subject = isRenewal 
       ? `Your ActiveHub Pro subscription has been renewed` 
       : `Your ActiveHub Pro subscription is active`;
     
+    // Use the template function to generate HTML
     const html = subscriptionConfirmationTemplate(admin, paymentDetails, planName, amount, startDate, endDate);
     
     console.log(`📧 Sending subscription confirmation to ${admin.email}`);
     
-    // Send the actual email
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    // Send the actual email with improved formatting
+    const info = await transporter.sendMail({
+      from: `"ActiveHub" <${process.env.EMAIL_USER}>`,
       to: admin.email,
       subject: subject,
       html: html
     });
     
+    console.log(`✅ Subscription confirmation email sent to ${admin.email}, ID: ${info.messageId}`);
     return true;
   } catch (error) {
     console.error('Error sending subscription confirmation email:', error);
+    // Return false instead of throwing to prevent webhook handler failures
     return false;
   }
 };
