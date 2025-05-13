@@ -192,41 +192,89 @@ exports.cancelSubscription = async (req, res) => {
     }
 
     // Check if admin has an active subscription
-    if (admin.subscriptionStatus !== 'active' || !admin.razorpaySubscriptionId) {
+    if (admin.subscriptionStatus !== 'active' && admin.subscriptionStatus !== 'trial' || !admin.razorpaySubscriptionId) {
       return res.status(400).json({ 
         message: "No active subscription found to cancel" 
       });
     }
 
     const subscriptionId = admin.razorpaySubscriptionId;
+    let isCancelledDirectly = false;
 
-    // Cancel subscription with Razorpay
-    // Setting cancel_at_cycle_end to true will cancel the subscription at the end of the current billing cycle
-    await razorpay.subscriptions.cancel(subscriptionId, {
-      cancel_at_cycle_end: true
-    });
+    try {
+      // Try to cancel subscription with Razorpay
+      // Setting cancel_at_cycle_end to true will cancel the subscription at the end of the current billing cycle
+      await razorpay.subscriptions.cancel(subscriptionId, {
+        cancel_at_cycle_end: true
+      });
+    } catch (razorpayError) {
+      // If we can't cancel through Razorpay (e.g., during trial period)
+      console.log(`Could not cancel subscription through Razorpay: ${razorpayError.message}`);
+      console.log('Proceeding with direct cancellation in our database');
+      isCancelledDirectly = true;
+    }
 
-    // Update admin's subscription status to indicate cancellation pending
-    await Admin.findByIdAndUpdate(adminId, {
-      subscriptionStatus: "active", // Keep as active until the end date
-      $push: {
-        paymentHistory: {
-          paymentId: `cancel-${Date.now()}`,
-          amount: 0,
-          plan: "ActiveHub Pro - Cancellation",
-          startDate: new Date(),
-          endDate: admin.subscriptionEndDate,
-          status: "cancellation_scheduled",
-          createdAt: new Date()
+    // Calculate end date - if in trial, use trial end date, otherwise use subscription end date
+    const endDate = admin.trialEndDate && new Date(admin.trialEndDate) > new Date() 
+      ? admin.trialEndDate 
+      : admin.subscriptionEndDate;
+
+    // Update admin's subscription status
+    const updateData = isCancelledDirectly 
+      ? {
+          subscriptionStatus: "cancelled",
+          $push: {
+            paymentHistory: {
+              paymentId: `cancel-${Date.now()}`,
+              amount: 0,
+              plan: "ActiveHub Pro - Cancellation",
+              startDate: new Date(),
+              endDate: endDate,
+              status: "cancelled",
+              createdAt: new Date()
+            }
+          }
         }
-      }
-    });
+      : {
+          subscriptionStatus: "active", // Keep as active until the end date
+          $push: {
+            paymentHistory: {
+              paymentId: `cancel-${Date.now()}`,
+              amount: 0,
+              plan: "ActiveHub Pro - Cancellation",
+              startDate: new Date(),
+              endDate: endDate,
+              status: "cancellation_scheduled",
+              createdAt: new Date()
+            }
+          }
+        };
 
-    console.log(`Admin ${adminId} subscription cancelled at cycle end: ${subscriptionId}`);
+    await Admin.findByIdAndUpdate(adminId, updateData);
+
+    console.log(`Admin ${adminId} subscription ${isCancelledDirectly ? 'cancelled directly' : 'cancelled at cycle end'}: ${subscriptionId}`);
+
+    // Send cancellation email
+    try {
+      const { sendSubscriptionCancelledEmail } = require("../services/emailService");
+      
+      await sendSubscriptionCancelledEmail(
+        admin,
+        { subscriptionId },
+        endDate
+      );
+    } catch (emailError) {
+      console.error("Error sending cancellation email:", emailError);
+      // Continue processing even if email fails
+    }
+
+    const message = isCancelledDirectly
+      ? "Your subscription has been cancelled."
+      : "Subscription cancellation scheduled. Your subscription will remain active until the end of your current billing period.";
 
     res.status(200).json({ 
-      message: "Subscription cancellation scheduled. Your subscription will remain active until the end of your current billing period.", 
-      endDate: admin.subscriptionEndDate 
+      message: message, 
+      endDate: endDate 
     });
   } catch (err) {
     console.error("Cancel subscription error:", err);

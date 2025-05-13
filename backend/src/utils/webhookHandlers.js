@@ -11,7 +11,6 @@ const razorpay = require('./razorpay');
  */
 const handlePaymentAuthorized = async (data) => {
   try {
-    console.log(" Processing payment.authorized event");
     const paymentEntity = data.payment?.entity || {};
     const paymentId = paymentEntity.id;
     
@@ -24,7 +23,7 @@ const handlePaymentAuthorized = async (data) => {
     let payment = await Payment.findOne({ razorpay_payment_id: paymentId });
     
     if (!payment) {
-      console.log(`Creating new payment record for payment ${paymentId}`);
+      // Create new payment record
       
       // Extract admin ID from notes or metadata
       const adminId = paymentEntity.notes?.admin_id || paymentEntity.notes?.adminId;
@@ -46,7 +45,6 @@ const handlePaymentAuthorized = async (data) => {
       });
       
       await payment.save();
-      console.log(`Created payment record for ${paymentId}`);
     } else {
       // Update existing payment record
       await Payment.updateOne(
@@ -118,7 +116,7 @@ const handlePaymentAuthorized = async (data) => {
             startDate,
             endDate
           );
-          console.log(`Subscription confirmation email sent to ${admin.email}`);
+          // Subscription confirmation email sent
         } catch (emailError) {
           console.error(`Error sending confirmation email: ${emailError.message}`);
         }
@@ -138,7 +136,6 @@ const handlePaymentAuthorized = async (data) => {
  */
 const handlePaymentCaptured = async (data) => {
   try {
-    console.log("✅ Processing payment.captured event");
     const paymentEntity = data.payment?.entity || {};
     const paymentId = paymentEntity.id;
     
@@ -224,7 +221,7 @@ const handlePaymentCaptured = async (data) => {
             startDate,
             endDate
           );
-          console.log(`Payment confirmation email sent to ${admin.email}`);
+          // Payment confirmation email sent
         } catch (emailError) {
           console.error(`Error sending confirmation email: ${emailError.message}`);
         }
@@ -244,7 +241,6 @@ const handlePaymentCaptured = async (data) => {
  */
 const handlePaymentFailed = async (data) => {
   try {
-    console.log("❌ Processing payment.failed event");
     const paymentEntity = data.payment?.entity || {};
     const paymentId = paymentEntity.id;
     
@@ -290,7 +286,7 @@ const handlePaymentFailed = async (data) => {
         }
       );
       
-      console.log(`Admin ${payment.adminId} moved to grace period until ${graceEndDate.toISOString()}`);
+      // Admin moved to grace period
       
       // Send payment failed email
       try {
@@ -303,7 +299,7 @@ const handlePaymentFailed = async (data) => {
           },
           graceEndDate
         );
-        console.log(`Payment failed email sent to ${admin.email}`);
+        // Payment failed email sent
       } catch (emailError) {
         console.error(`Error sending payment failed email: ${emailError.message}`);
       }
@@ -320,7 +316,6 @@ const handlePaymentFailed = async (data) => {
  */
 const handleSubscriptionActivated = async (data) => {
   try {
-    console.log("🔁 Processing subscription.activated event");
     const subscriptionEntity = data.subscription?.entity || {};
     const subscriptionId = subscriptionEntity.id;
     
@@ -352,8 +347,6 @@ const handleSubscriptionActivated = async (data) => {
         subscriptionEndDate: endDate
       }
     );
-    
-    console.log(`Admin ${admin._id} subscription activated. End date: ${endDate.toISOString()}`);
   } catch (error) {
     console.error("Error handling subscription.activated event:", error);
   }
@@ -366,7 +359,6 @@ const handleSubscriptionActivated = async (data) => {
  */
 const handleSubscriptionCharged = async (data) => {
   try {
-    console.log("💰 Processing subscription.charged event");
     const subscriptionEntity = data.subscription?.entity || {};
     const subscriptionId = subscriptionEntity.id;
     const paymentId = data.payment?.entity?.id;
@@ -411,28 +403,6 @@ const handleSubscriptionCharged = async (data) => {
         }
       }
     );
-    
-    console.log(`Admin ${admin._id} subscription renewed. New end date: ${endDate.toISOString()}`);
-    
-    // Send renewal confirmation email
-    try {
-      await sendSubscriptionConfirmationEmail(
-        admin,
-        {
-          razorpay_payment_id: paymentId || `recurring-${Date.now()}`,
-          razorpay_subscription_id: subscriptionId,
-          method: "Razorpay Recurring"
-        },
-        "ActiveHub Pro",
-        subscriptionEntity.amount / 100,
-        startDate,
-        endDate,
-        true // isRenewal flag
-      );
-      console.log(`Subscription renewal confirmation email sent to ${admin.email}`);
-    } catch (emailError) {
-      console.error(`Error sending renewal confirmation email: ${emailError.message}`);
-    }
   } catch (error) {
     console.error("Error handling subscription.charged event:", error);
   }
@@ -445,7 +415,6 @@ const handleSubscriptionCharged = async (data) => {
  */
 const handleSubscriptionHalted = async (data) => {
   try {
-    console.log("⏸️ Processing subscription.halted event");
     const subscriptionEntity = data.subscription?.entity || {};
     const subscriptionId = subscriptionEntity.id;
     
@@ -474,23 +443,6 @@ const handleSubscriptionHalted = async (data) => {
         graceEndDate: graceEndDate
       }
     );
-    
-    console.log(`Admin ${admin._id} moved to grace period until ${graceEndDate.toISOString()}`);
-    
-    // Send subscription halted email
-    try {
-      await sendPaymentFailedEmail(
-        admin,
-        {
-          subscriptionId: subscriptionId,
-          amount: subscriptionEntity.amount ? subscriptionEntity.amount / 100 : null
-        },
-        graceEndDate
-      );
-      console.log(`Subscription halted email sent to ${admin.email}`);
-    } catch (emailError) {
-      console.error(`Error sending subscription halted email: ${emailError.message}`);
-    }
   } catch (error) {
     console.error("Error handling subscription.halted event:", error);
   }
@@ -503,7 +455,6 @@ const handleSubscriptionHalted = async (data) => {
  */
 const handleSubscriptionCancelled = async (data) => {
   try {
-    console.log("🛑 Processing subscription.cancelled event");
     const subscriptionEntity = data.subscription?.entity || {};
     const subscriptionId = subscriptionEntity.id;
     
@@ -542,7 +493,7 @@ const handleSubscriptionCancelled = async (data) => {
       }
     );
     
-    console.log(`Admin ${admin._id} subscription cancelled. Active until: ${endDate.toISOString()}`);
+    // Admin subscription cancelled
     
     // Send cancellation confirmation email
     try {
@@ -553,7 +504,7 @@ const handleSubscriptionCancelled = async (data) => {
         },
         endDate
       );
-      console.log(`Subscription cancellation email sent to ${admin.email}`);
+      // Subscription cancellation email sent
     } catch (emailError) {
       console.error(`Error sending cancellation email: ${emailError.message}`);
     }
@@ -569,7 +520,6 @@ const handleSubscriptionCancelled = async (data) => {
  */
 const handleSubscriptionAuthenticated = async (data) => {
   try {
-    console.log("🔐 Processing subscription.authenticated event");
     const subscriptionEntity = data.subscription?.entity || {};
     const subscriptionId = subscriptionEntity.id;
     
@@ -579,7 +529,7 @@ const handleSubscriptionAuthenticated = async (data) => {
     }
     
     // Log the authentication success
-    console.log(`Subscription ${subscriptionId} authenticated successfully`);
+    // Subscription authenticated successfully
     
     // Find admin associated with this subscription
     const adminId = subscriptionEntity.notes?.adminId;
@@ -594,7 +544,7 @@ const handleSubscriptionAuthenticated = async (data) => {
             subscriptionAuthDate: new Date()
           }
         );
-        console.log(`Admin ${adminId} subscription authentication status updated`);
+        // Admin subscription authentication status updated
       }
     }
   } catch (error) {
@@ -609,7 +559,6 @@ const handleSubscriptionAuthenticated = async (data) => {
  */
 const handleRefundCreated = async (data) => {
   try {
-    console.log("💸 Processing refund.created event");
     const refundEntity = data.refund?.entity || {};
     const refundId = refundEntity.id;
     const paymentId = refundEntity.payment_id;
@@ -639,7 +588,7 @@ const handleRefundCreated = async (data) => {
       }
     );
     
-    console.log(`Payment ${paymentId} updated with refund information`);
+    // Payment updated with refund information
   } catch (error) {
     console.error("Error handling refund.created event:", error);
   }
@@ -652,7 +601,6 @@ const handleRefundCreated = async (data) => {
  */
 const handleRefundProcessed = async (data) => {
   try {
-    console.log("✅ Processing refund.processed event");
     const refundEntity = data.refund?.entity || {};
     const refundId = refundEntity.id;
     const paymentId = refundEntity.payment_id;
@@ -680,7 +628,7 @@ const handleRefundProcessed = async (data) => {
       }
     );
     
-    console.log(`Refund for payment ${paymentId} has been processed successfully`);
+    // Refund processed successfully
     
     // If this was a subscription payment, update the admin's subscription status
     if (payment.razorpay_subscription_id && payment.adminId) {
@@ -701,7 +649,7 @@ const handleRefundProcessed = async (data) => {
           }
         );
         
-        console.log(`Admin ${payment.adminId} subscription cancelled due to refund`);
+        // Admin subscription cancelled due to refund
       }
     }
   } catch (error) {
@@ -720,7 +668,6 @@ const handleRazorpayEvent = async (event, data) => {
     switch (event) {
       case "payment.authorized":
         // Payment is authorized but not captured yet
-        console.log("✅ Payment authorized, processing subscription");
         await handlePaymentAuthorized(data);
         break;
         
@@ -765,7 +712,7 @@ const handleRazorpayEvent = async (event, data) => {
         break;
         
       default:
-        console.log(`📩 Unhandled Razorpay event: ${event}`);
+        // Unhandled Razorpay event
         return false;
     }
     
