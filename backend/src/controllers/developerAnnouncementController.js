@@ -42,7 +42,10 @@ exports.createAnnouncement = async (req, res) => {
         query = { 
           $or: [
             { subscriptionEndDate: { $lt: new Date() } },
-            { subscriptionStatus: 'cancelled' }
+            { subscriptionStatus: 'cancelled',
+             subscriptionStatus: 'expired',
+
+             }
           ]
         };
       }
