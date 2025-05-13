@@ -14,6 +14,7 @@ const {restrictWriteAccess} = require("../middleware/subscriptionAccess");
 
 
 const router = express.Router();
+const developerAnnouncementController = require('../controllers/developerAnnouncementController');
 
 // GET /profile - Fetch admin profile
 router.get("/profile", authenticateAdmin, getAdminProfile);
@@ -35,5 +36,8 @@ router.post("/tour-completed", authenticateAdmin, markTourCompleted);
 
 // GET /gyms - Get all gyms
 router.get("/gyms", authenticateAdmin, getAllGyms);
+
+// GET /announcements/developer - Get all developer announcements
+router.get("/announcements/developer", authenticateAdmin, developerAnnouncementController.getAdminAnnouncements);
 
 module.exports = router;

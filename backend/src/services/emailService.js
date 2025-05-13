@@ -8,9 +8,8 @@ const createTransporter = () => {
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
-    },
-    debug: true, // Enable debug output
-    logger: true // Log information about the email sending process
+    }
+    // Debug and logger options removed to reduce console output
   });
 };
 
@@ -27,7 +26,7 @@ const sendEmail = async (to, subject, html) => {
     
     // Send the actual email
     const info = await transporter.sendMail({
-      from: `"ActiveHub FlexTracker" <${process.env.EMAIL_USER}>`,
+      from: `"ActiveHub FitTracker" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html
@@ -535,24 +534,24 @@ const sendSubscriptionCancelledEmail = async (admin, subscriptionDetails, active
     const subject = `Your ActiveHub Pro subscription has been cancelled`;
     
     const html = `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); background: linear-gradient(to bottom, #ffffff, #f9f9f9);">
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); background-color: #ffffff;">
         <div style="text-align: center; margin-bottom: 25px;">
           <h1 style="color: #333; font-size: 28px; margin-bottom: 5px;">ActiveHub FitTracker</h1>
           <div style="width: 80px; height: 4px; background: linear-gradient(to right, rgb(28, 30, 148), rgb(119, 85, 239)); margin: 0 auto;"></div>
         </div>
         
         <h2 style="color: rgb(55, 71, 109); font-size: 24px; text-align: center;">Subscription Cancelled</h2>
-        <p style="font-size: 16px; line-height: 1.6;">Dear <strong>${admin.name || admin.email}</strong>,</p>
-        <p style="font-size: 16px; line-height: 1.6;">Your subscription to <strong>ActiveHub Pro</strong> has been cancelled.</p>
+        <p style="font-size: 16px; line-height: 1.6; color: #333333;">Dear <strong>${admin.name || admin.email}</strong>,</p>
+        <p style="font-size: 16px; line-height: 1.6; color: #333333;">Your subscription to <strong>ActiveHub Pro</strong> has been cancelled.</p>
         
-        <div style="background: linear-gradient(to right, #f9f9f9, #f1f1f1); padding: 20px; border-left: 4px solid rgb(88, 58, 236); border-radius: 5px; margin: 25px 0;">
+        <div style="background-color: #ffffff; border: 1px solid #e8e8e8; padding: 20px; border-left: 4px solid rgb(88, 58, 236); border-radius: 5px; margin: 25px 0;">
           <h3 style="color: #555; margin-top: 0;">Subscription Details:</h3>
-          <p style="margin-bottom: 10px;"><strong>Subscription ID:</strong> ${subscriptionDetails.subscriptionId || 'N/A'}</p>
-          <p style="margin-bottom: 10px;"><strong>Active Until:</strong> ${formatDate(activeUntil)}</p>
+          <p style="margin-bottom: 10px; color: #333333;"><strong>Subscription ID:</strong> ${subscriptionDetails.subscriptionId || 'N/A'}</p>
+          <p style="margin-bottom: 10px; color: #333333;"><strong>Active Until:</strong> ${formatDate(activeUntil)}</p>
         </div>
         
-        <div style="background-color: #f0f8ff; padding: 15px; border-radius: 5px; margin: 25px 0;">
-          <p style="font-size: 16px; line-height: 1.6; margin: 0;">You will continue to have access to all ActiveHub Pro features until <strong>${formatDate(activeUntil)}</strong>.</p>
+        <div style="background-color: #f8faff; border: 1px solid #e8e8e8; padding: 15px; border-radius: 5px; margin: 25px 0;">
+          <p style="font-size: 16px; line-height: 1.6; margin: 0; color: #333333;">You will continue to have access to all ActiveHub Pro features until <strong>${formatDate(activeUntil)}</strong>.</p>
         </div>
         
         <div style="text-align: center; margin: 30px 0;">

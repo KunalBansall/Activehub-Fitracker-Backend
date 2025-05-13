@@ -209,8 +209,7 @@ exports.cancelSubscription = async (req, res) => {
       });
     } catch (razorpayError) {
       // If we can't cancel through Razorpay (e.g., during trial period)
-      console.log(`Could not cancel subscription through Razorpay: ${razorpayError.message}`);
-      console.log('Proceeding with direct cancellation in our database');
+      // This is common during trial periods, so we handle it gracefully
       isCancelledDirectly = true;
     }
 
@@ -251,8 +250,6 @@ exports.cancelSubscription = async (req, res) => {
         };
 
     await Admin.findByIdAndUpdate(adminId, updateData);
-
-    console.log(`Admin ${adminId} subscription ${isCancelledDirectly ? 'cancelled directly' : 'cancelled at cycle end'}: ${subscriptionId}`);
 
     // Send cancellation email
     try {
