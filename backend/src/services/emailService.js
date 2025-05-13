@@ -3,10 +3,10 @@ const Admin = require('../models/Admin');
 
 // Create transporter with enhanced logging
 const createTransporter = () => {
-  console.log('Creating email transporter with the following credentials:');
-  console.log(`- Email User: ${process.env.EMAIL_USER}`);
-  console.log(`- Email Password: ${process.env.EMAIL_PASSWORD ? '******' : 'NOT SET'}`); // Don't log actual password
-  console.log(`- Email Service: ${process.env.EMAIL_SERVICE || 'gmail'}`);
+  // console.log('Creating email transporter with the following credentials:');
+  // console.log(`- Email User: ${process.env.EMAIL_USER}`);
+  // console.log(`- Email Password: ${process.env.EMAIL_PASSWORD ? '******' : 'NOT SET'}`); // Don't log actual password
+  // console.log(`- Email Service: ${process.env.EMAIL_SERVICE || 'gmail'}`);
   
   return nodemailer.createTransport({
     service: process.env.EMAIL_SERVICE || 'gmail',
@@ -41,7 +41,7 @@ const sendEmail = async (to, subject, html) => {
     });
     
     console.log(`✅ EMAIL SENT SUCCESSFULLY: ${info.messageId}`);
-    console.log(`📨 Preview URL: ${nodemailer.getTestMessageUrl(info) || 'No preview available'}`);
+    // console.log(`📨 Preview URL: ${nodemailer.getTestMessageUrl(info) || 'No preview available'}`);
     
     return true;
   } catch (error) {
@@ -1130,15 +1130,15 @@ const subscriptionConfirmationTemplate = (admin, paymentDetails, planName, amoun
   return `
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); background: linear-gradient(to bottom, #ffffff, #f9f9f9);">
       <div style="text-align: center; margin-bottom: 25px;">
-        <h1 style="color: #333; font-size: 28px; margin-bottom: 5px;">ActiveHub</h1>
-        <div style="width: 80px; height: 4px; background: linear-gradient(to right, #27ae60, #2ecc71); margin: 0 auto;"></div>
+        <h1 style="color: #333; font-size: 28px; margin-bottom: 5px;">ActiveHub FitTracker</h1>
+        <div style="width: 80px; height: 4px; background: linear-gradient(to right,rgb(28, 30, 148),rgb(119, 85, 239)); margin: 0 auto;"></div>
       </div>
       
       <h2 style="color: #27ae60; font-size: 24px; text-align: center;">Subscription Confirmed</h2>
       <p style="font-size: 16px; line-height: 1.6;">Dear <strong>${admin.name || admin.email}</strong>,</p>
       <p style="font-size: 16px; line-height: 1.6;">Thank you for subscribing to <strong>${planName}</strong>. Your subscription is now active.</p>
       
-      <div style="background: linear-gradient(to right, #f9f9f9, #f1f1f1); padding: 20px; border-left: 4px solid #27ae60; border-radius: 5px; margin: 25px 0;">
+      <div style="background: linear-gradient(to right, #f9f9f9, #f1f1f1); padding: 20px; border-left: 4px solidrgb(88, 58, 236); border-radius: 5px; margin: 25px 0;">
         <h3 style="color: #555; margin-top: 0;">Subscription Details:</h3>
         <p style="margin-bottom: 10px;"><strong>Plan:</strong> ${planName}</p>
         <p style="margin-bottom: 10px;"><strong>Amount Paid:</strong> ${formatCurrency(amount)}</p>
@@ -1150,12 +1150,12 @@ const subscriptionConfirmationTemplate = (admin, paymentDetails, planName, amoun
       </div>
       
       <div style="background-color: #e8f5e9; padding: 15px; border-radius: 5px; margin: 25px 0; text-align: center;">
-        <h3 style="color: #27ae60; margin-top: 0;">🎉 Subscription Successfully Activated</h3>
+        <h3 style="color:rgb(55, 71, 109); margin-top: 0;">🎉 Subscription Successfully Activated</h3>
         <p style="font-style: italic; color: #555;">You now have full access to all ActiveHub Pro features!</p>
-      </div>
+      </div>  
       
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${process.env.FRONTEND_URL}/admin/dashboard" style="background: linear-gradient(to right, #27ae60, #2ecc71); color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block; box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3); transition: all 0.3s ease;">GO TO DASHBOARD</a>
+        <a href="${process.env.FRONTEND_URL}/subscription" style="background: linear-gradient(to right,rgb(55, 71, 109),rgb(88, 58, 236)); color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block; box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3); transition: all 0.3s ease;">GO TO DASHBOARD</a>
       </div>
       
       <p style="font-size: 16px; line-height: 1.6;">You can manage your subscription anytime from your account settings.</p>
