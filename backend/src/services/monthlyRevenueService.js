@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Admin = require('../models/Admin');
 const Member = require('../models/Member');
 const Order = require('../models/Order');
@@ -14,10 +15,35 @@ const mkdirAsync = promisify(fs.mkdir);
 const unlinkAsync = promisify(fs.unlink);
 const writeFileAsync = promisify(fs.writeFile);
 
+// Month names for formatting
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+// Format currency consistently
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
+};
+
+/**
+ * Check if today is the first day of the month
+ * @returns {boolean} True if today is the first day of the month
+ */
+const isFirstDayOfMonth = () => {
+  const today = new Date();
+  return today.getDate() === 1;
+};
+
 /**
  * Check if today is the last day of the month
  * Improved to be more reliable with timezone considerations
- * @returns {boolean}
+ * @returns {boolean} True if today is the last day of the month
  */
 const isLastDayOfMonth = () => {
   // Get current date in local timezone
@@ -37,13 +63,13 @@ const isLastDayOfMonth = () => {
 };
 
 /**
- * Get revenue data for a specific month and year
+ * Get comprehensive revenue data for a specific month and year
  * @param {ObjectId} gymId - The gym's ID
  * @param {number} month - Month (0-11)
  * @param {number} year - Year
- * @returns {Promise<Object>} Revenue data
+ * @returns {Promise<Object>} Detailed revenue data
  */
-const getMonthlyRevenue = async (gymId, month, year) => {
+const getCurrentMonthRevenueData = async (gymId, month, year) => {
   // First day of the month
   const startDate = new Date(year, month, 1);
   startDate.setHours(0, 0, 0, 0);
@@ -52,8 +78,25 @@ const getMonthlyRevenue = async (gymId, month, year) => {
   const endDate = new Date(year, month + 1, 0);
   endDate.setHours(23, 59, 59, 999);
   
-  // Get membership revenue
-  const membershipRevenue = await Member.aggregate([
+  // Get expected membership revenue (all active members)
+  const expectedMembershipRevenue = await Member.aggregate([
+    {
+      $match: {
+        gymId,
+        status: 'active',
+        createdAt: { $lte: endDate }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: '$fees' }
+      }
+    }
+  ]);
+  
+  // Get collected membership revenue (only paid members)
+  const collectedMembershipRevenue = await Member.aggregate([
     {
       $match: {
         gymId,
@@ -69,8 +112,24 @@ const getMonthlyRevenue = async (gymId, month, year) => {
     }
   ]);
   
-  // Get shop revenue from delivered orders
-  const shopRevenue = await Order.aggregate([
+  // Get expected shop revenue (all orders)
+  const expectedShopRevenue = await Order.aggregate([
+    {
+      $match: {
+        gymId,
+        createdAt: { $gte: startDate, $lte: endDate }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: '$totalAmount' }
+      }
+    }
+  ]);
+  
+  // Get collected shop revenue (only delivered orders)
+  const collectedShopRevenue = await Order.aggregate([
     {
       $match: {
         gymId,
@@ -87,14 +146,58 @@ const getMonthlyRevenue = async (gymId, month, year) => {
   ]);
   
   // Calculate totals
-  const totalMembershipRevenue = membershipRevenue[0]?.total || 0;
-  const totalShopRevenue = shopRevenue[0]?.total || 0;
-  const totalRevenue = totalMembershipRevenue + totalShopRevenue;
+  const totalExpectedMembershipRevenue = expectedMembershipRevenue[0]?.total || 0;
+  const totalCollectedMembershipRevenue = collectedMembershipRevenue[0]?.total || 0;
+  const pendingMembershipRevenue = totalExpectedMembershipRevenue - totalCollectedMembershipRevenue;
+  
+  const totalExpectedShopRevenue = expectedShopRevenue[0]?.total || 0;
+  const totalCollectedShopRevenue = collectedShopRevenue[0]?.total || 0;
+  const pendingShopRevenue = totalExpectedShopRevenue - totalCollectedShopRevenue;
+  
+  const totalExpectedRevenue = totalExpectedMembershipRevenue + totalExpectedShopRevenue;
+  const totalCollectedRevenue = totalCollectedMembershipRevenue + totalCollectedShopRevenue;
+  const totalRemainingRevenue = pendingMembershipRevenue + pendingShopRevenue;
+  
+  // Calculate collection rate
+  const collectionRate = totalExpectedRevenue > 0 
+    ? Math.round((totalCollectedRevenue / totalExpectedRevenue) * 100) 
+    : 100;
   
   return {
-    membershipRevenue: totalMembershipRevenue,
-    shopRevenue: totalShopRevenue,
-    totalRevenue
+    // Expected revenue
+    expectedMembershipRevenue: totalExpectedMembershipRevenue,
+    expectedShopRevenue: totalExpectedShopRevenue,
+    totalExpectedRevenue,
+    
+    // Collected revenue
+    collectedMembershipRevenue: totalCollectedMembershipRevenue,
+    collectedShopRevenue: totalCollectedShopRevenue,
+    totalCollectedRevenue,
+    
+    // Pending revenue
+    pendingMembershipRevenue,
+    pendingShopRevenue,
+    totalRemainingRevenue,
+    
+    // Collection rate
+    collectionRate
+  };
+};
+
+/**
+ * Get simple revenue data for a specific month and year (legacy support)
+ * @param {ObjectId} gymId - The gym's ID
+ * @param {number} month - Month (0-11)
+ * @param {number} year - Year
+ * @returns {Promise<Object>} Revenue data
+ */
+const getMonthlyRevenue = async (gymId, month, year) => {
+  const revenueData = await getCurrentMonthRevenueData(gymId, month, year);
+  
+  return {
+    membershipRevenue: revenueData.collectedMembershipRevenue,
+    shopRevenue: revenueData.collectedShopRevenue,
+    totalRevenue: revenueData.totalCollectedRevenue
   };
 };
 
@@ -110,6 +213,134 @@ const calculateGrowth = (current, previous) => {
 };
 
 /**
+ * Archive the current month's revenue data
+ * @param {string} gymId - The gym's ID
+ * @returns {Promise<Object>} The archived revenue data
+ */
+const archiveCurrentMonthRevenue = async (gymId) => {
+  try {
+    // Get the previous month (we're archiving the month that just ended)
+    const today = new Date();
+    let month, year;
+    
+    if (today.getDate() === 1) {
+      // If today is the 1st of the month, we archive the previous month
+      if (today.getMonth() === 0) { // January
+        month = 11; // December
+        year = today.getFullYear() - 1;
+      } else {
+        month = today.getMonth() - 1;
+        year = today.getFullYear();
+      }
+    } else {
+      // For testing or manual archiving, use current month
+      month = today.getMonth();
+      year = today.getFullYear();
+    }
+    
+    // Get the month name
+    const monthName = `${MONTH_NAMES[month]} ${year}`;
+    
+    // Get the revenue data for the month
+    const revenueData = await getCurrentMonthRevenueData(gymId, month, year);
+    
+    // Get gym settings for revenue goal
+    const gymSettings = await GymSettings.findOne({ gymId });
+    const revenueGoal = gymSettings?.monthlyRevenueGoal || 0;
+    const goalAchieved = revenueData.totalCollectedRevenue >= revenueGoal;
+    
+    // Get previous month's data for growth calculation
+    let previousMonthData;
+    if (month === 0) { // January
+      previousMonthData = await MonthlyRevenue.findOne({ 
+        gymId, 
+        month: 11, // December
+        year: year - 1 
+      });
+    } else {
+      previousMonthData = await MonthlyRevenue.findOne({ 
+        gymId, 
+        month: month - 1, 
+        year 
+      });
+    }
+    
+    // Calculate growth rates
+    const membershipGrowth = calculateGrowth(
+      revenueData.collectedMembershipRevenue,
+      previousMonthData?.collectedMembershipRevenue || 0
+    );
+    
+    const shopGrowth = calculateGrowth(
+      revenueData.collectedShopRevenue,
+      previousMonthData?.collectedShopRevenue || 0
+    );
+    
+    const totalGrowth = calculateGrowth(
+      revenueData.totalCollectedRevenue,
+      previousMonthData?.totalCollectedRevenue || 0
+    );
+    
+    // Create or update the monthly revenue record
+    const monthlyRevenue = await MonthlyRevenue.findOneAndUpdate(
+      { gymId, month, year },
+      {
+        gymId,
+        month,
+        year,
+        monthName,
+        // Expected revenue
+        expectedMembershipRevenue: revenueData.expectedMembershipRevenue,
+        expectedShopRevenue: revenueData.expectedShopRevenue,
+        totalExpectedRevenue: revenueData.totalExpectedRevenue,
+        // Collected revenue
+        collectedMembershipRevenue: revenueData.collectedMembershipRevenue,
+        collectedShopRevenue: revenueData.collectedShopRevenue,
+        totalCollectedRevenue: revenueData.totalCollectedRevenue,
+        // Pending revenue
+        pendingMembershipRevenue: revenueData.pendingMembershipRevenue,
+        pendingShopRevenue: revenueData.pendingShopRevenue,
+        totalRemainingRevenue: revenueData.totalRemainingRevenue,
+        // Growth metrics
+        membershipGrowth,
+        shopGrowth,
+        totalGrowth,
+        // Goal tracking
+        revenueGoal,
+        goalAchieved,
+        // Collection rate
+        collectionRate: revenueData.collectionRate,
+        // Metadata
+        archivedAt: new Date(),
+        emailSent: false
+      },
+      { new: true, upsert: true }
+    );
+    
+    return monthlyRevenue;
+  } catch (error) {
+    console.error('Error archiving monthly revenue:', error);
+    throw error;
+  }
+};
+
+/**
+ * Initialize a new month's revenue tracking
+ * @param {string} gymId - The gym's ID
+ * @returns {Promise<void>}
+ */
+const initializeNewMonth = async (gymId) => {
+  try {
+    // No action needed here as we calculate current month data on-the-fly
+    // The archiving process already saves the previous month's data
+    console.log(`New month initialized for gym ${gymId}`);
+  } catch (error) {
+    console.error('Error initializing new month:', error);
+    throw error;
+  }
+};
+
+/**
  * Generate HTML for the monthly report email
  * @param {Object} data - Revenue data and gym info
  * @returns {string} HTML content
@@ -117,31 +348,22 @@ const calculateGrowth = (current, previous) => {
 const generateReportHtml = (data) => {
   const {
     gymName,
-    month,
-    year,
-    membershipRevenue,
-    shopRevenue,
-    totalRevenue,
+    monthName,
+    collectedMembershipRevenue,
+    collectedShopRevenue,
+    totalCollectedRevenue,
+    expectedMembershipRevenue,
+    expectedShopRevenue,
+    totalExpectedRevenue,
+    pendingMembershipRevenue,
+    totalRemainingRevenue,
     membershipGrowth,
     shopGrowth,
     totalGrowth,
     revenueGoal,
-    goalAchieved
+    goalAchieved,
+    collectionRate
   } = data;
-  
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-  
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
   
   const getGrowthEmoji = (growth) => {
     if (growth > 10) return '🚀';
@@ -151,13 +373,9 @@ const generateReportHtml = (data) => {
   };
   
   // Calculate percentages for the revenue breakdown chart
-  const totalRevenueNonZero = totalRevenue || 1; // Prevent division by zero
-  const membershipPercentage = Math.round((membershipRevenue / totalRevenueNonZero) * 100);
-  const shopPercentage = Math.round((shopRevenue / totalRevenueNonZero) * 100);
-  
-  // Format dates
-  const formattedMonth = monthNames[month];
-  const previousMonth = month === 0 ? monthNames[11] : monthNames[month - 1];
+  const totalRevenueNonZero = totalCollectedRevenue || 1; // Prevent division by zero
+  const membershipPercentage = Math.round((collectedMembershipRevenue / totalRevenueNonZero) * 100);
+  const shopPercentage = Math.round((collectedShopRevenue / totalRevenueNonZero) * 100);
   
   return `
     <!DOCTYPE html>
@@ -165,7 +383,7 @@ const generateReportHtml = (data) => {
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${gymName} - Revenue Report for ${formattedMonth} ${year}</title>
+      <title>${gymName} - Revenue Report for ${monthName}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
@@ -381,195 +599,18 @@ const generateReportHtml = (data) => {
           color: var(--text-medium);
           margin-bottom: 8px;
         }
-        
-        .comparison-value {
-          font-size: 20px;
-          font-weight: 600;
-          color: var(--text-dark);
-          margin-bottom: 4px;
-        }
-        
-        .comparison-growth {
-          font-size: 13px;
-          font-weight: 500;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 4px;
-        }
-        
-        .goal-container {
-          margin-top: 16px;
-        }
-        
-        .goal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-        
-        .goal-title {
-          font-weight: 600;
-          color: var(--text-dark);
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        
-        .goal-percentage {
-          font-weight: 600;
-          color: ${goalAchieved ? 'var(--success-color)' : 'var(--warning-color)'};
-        }
-        
-        .progress-container {
-          height: 8px;
-          background-color: var(--bg-light);
-          border-radius: 4px;
-          overflow: hidden;
-        }
-        
-        .progress-bar {
-          height: 100%;
-          background-color: ${goalAchieved ? 'var(--success-color)' : 'var(--warning-color)'};
-          width: ${Math.min(100, (totalRevenue / (revenueGoal || 1)) * 100)}%;
-          border-radius: 4px;
-        }
-        
-        .progress-labels {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 8px;
-          font-size: 13px;
-          color: var(--text-medium);
-        }
-        
-        .footer {
-          background-color: var(--bg-light);
-          padding: 24px;
-          text-align: center;
-          color: var(--text-medium);
-          font-size: 13px;
-          border-top: 1px solid var(--border-light);
-        }
-        
-        .footer p {
-          margin: 4px 0;
-        }
-        
-        .brand {
-          font-weight: 600;
-          color: var(--primary-color);
-        }
-        
-        @media (max-width: 600px) {
-          .container {
-            border-radius: 0;
-          }
-          
-          .comparison-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">💰</div>
-          <h1>${gymName}</h1>
-          <p>Revenue Report • ${formattedMonth} ${year}</p>
-        </div>
-        
-        <div class="content">
-          <div class="card summary-card">
-            <p class="total-revenue">${formatCurrency(totalRevenue)}</p>
-            <div class="growth-indicator ${totalGrowth > 0 ? 'positive' : totalGrowth < 0 ? 'negative' : 'neutral'}">
-              ${getGrowthEmoji(totalGrowth)} ${totalGrowth > 0 ? '+' : ''}${totalGrowth}% vs ${previousMonth}
-            </div>
-          </div>
-          
-          <div class="card">
-            <div class="card-title">📊 Revenue Breakdown</div>
-            
-            <div class="revenue-breakdown">
-              <div>
-                <div class="revenue-item">
-                  <div class="revenue-label">
-                    <span style="color: var(--primary-color)">●</span> Membership
-                  </div>
-                  <div class="revenue-value">${formatCurrency(membershipRevenue)}</div>
-                </div>
-                <div class="revenue-bar-container">
-                  <div class="revenue-bar membership-bar" style="width: ${membershipPercentage}%"></div>
-                </div>
-              </div>
-              
-              <div>
-                <div class="revenue-item">
-                  <div class="revenue-label">
-                    <span style="color: var(--warning-color)">●</span> Shop Sales
-                  </div>
-                  <div class="revenue-value">${formatCurrency(shopRevenue)}</div>
-                </div>
-                <div class="revenue-bar-container">
-                  <div class="revenue-bar shop-bar" style="width: ${shopPercentage}%"></div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="comparison-grid">
-              <div class="comparison-item">
-                <div class="comparison-label">Membership</div>
-                <div class="comparison-value">${formatCurrency(membershipRevenue)}</div>
-                <div class="comparison-growth ${membershipGrowth > 0 ? 'positive' : membershipGrowth < 0 ? 'negative' : 'neutral'}">
-                  ${getGrowthEmoji(membershipGrowth)} ${membershipGrowth > 0 ? '+' : ''}${membershipGrowth}%
-                </div>
-              </div>
-              
-              <div class="comparison-item">
-                <div class="comparison-label">Shop Sales</div>
-                <div class="comparison-value">${formatCurrency(shopRevenue)}</div>
-                <div class="comparison-growth ${shopGrowth > 0 ? 'positive' : shopGrowth < 0 ? 'negative' : 'neutral'}">
-                  ${getGrowthEmoji(shopGrowth)} ${shopGrowth > 0 ? '+' : ''}${shopGrowth}%
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          ${revenueGoal > 0 ? `
-          <div class="card">
-            <div class="card-title">${goalAchieved ? '🎉 Goal Achieved!' : '🎯 Revenue Goal'}</div>
-            
-            <div class="goal-container">
-              <div class="goal-header">
-                <div class="goal-title">${goalAchieved ? 'Congratulations!' : 'Progress'}</div>
-                <div class="goal-percentage">${Math.round((totalRevenue / revenueGoal) * 100)}%</div>
-              </div>
-              
-              <div class="progress-container">
-                <div class="progress-bar"></div>
-              </div>
-              
-              <div class="progress-labels">
-                <div>Current: ${formatCurrency(totalRevenue)}</div>
-                <div>Goal: ${formatCurrency(revenueGoal)}</div>
-              </div>
-            </div>
-          </div>
-          ` : ''}
-          
-          <div class="card">
-            <div class="card-title">💡 Insights</div>
-            
             <ul style="padding-left: 20px; color: var(--text-medium);">
               ${totalGrowth > 10 ? `<li>Outstanding growth of ${totalGrowth}% compared to last month!</li>` : ''}
               ${totalGrowth > 0 && totalGrowth <= 10 ? `<li>Positive growth trend with ${totalGrowth}% increase.</li>` : ''}
               ${totalGrowth < 0 ? `<li>Revenue decreased by ${Math.abs(totalGrowth)}% compared to last month.</li>` : ''}
-              ${membershipGrowth > shopGrowth ? `<li>Membership revenue is growing faster than shop sales.</li>` : ''}
-              ${shopGrowth > membershipGrowth ? `<li>Shop sales are growing faster than membership revenue.</li>` : ''}
-              ${revenueGoal > 0 && goalAchieved ? `<li>Congratulations on achieving your monthly revenue goal!</li>` : ''}
-              ${revenueGoal > 0 && !goalAchieved && (totalRevenue / revenueGoal) > 0.8 ? `<li>You're close to reaching your monthly revenue goal!</li>` : ''}
+              ${collectionRate < 80 ? `<li>Your collection rate is ${collectionRate}%. Consider following up on pending payments.</li>` : ''}
+              ${collectionRate >= 95 ? `<li>Excellent collection rate of ${collectionRate}%!</li>` : ''}
+              ${membershipGrowth > shopGrowth ? `<li>Membership revenue is growing faster than shop revenue.</li>` : ''}
+              ${shopGrowth > membershipGrowth ? `<li>Shop revenue is growing faster than membership revenue.</li>` : ''}
+              ${goalAchieved ? `<li>Congratulations on achieving your revenue goal!</li>` : ''}
+              ${!goalAchieved && collectionRate > 90 ? `<li>You're on track with a high collection rate, but still below your revenue goal.</li>` : ''}
+            </ul>
+              ${revenueGoal > 0 && !goalAchieved && (totalCollectedRevenue / revenueGoal) > 0.8 ? `<li>You're close to reaching your monthly revenue goal!</li>` : ''}
             </ul>
           </div>
         </div>
@@ -1147,15 +1188,124 @@ const processMonthlyReports = async (force = false, specificMonth = null, specif
     
     return successful;
   } catch (error) {
-    console.error('🚨 Fatal error processing monthly revenue reports:', error);
+    console.error('Error in processMonthlyReports:', error);
     return 0;
   }
 };
 
+/**
+ * Get archived monthly revenue data
+ * @param {string} gymId - The gym's ID
+ * @param {number} month - Month (0-11), optional - if not provided, returns all months
+ * @param {number} year - Year, optional - if not provided, returns all years
+ * @returns {Promise<Array>} Array of monthly revenue data
+ */
+const getArchivedMonthlyRevenue = async (gymId, month, year) => {
+  try {
+    const query = { gymId };
+    
+    if (month !== undefined && year !== undefined) {
+      query.month = month;
+      query.year = year;
+      return await MonthlyRevenue.findOne(query);
+    }
+    
+    if (year !== undefined) {
+      query.year = year;
+    }
+    
+    // Return all archived data for the gym, sorted by date (newest first)
+    return await MonthlyRevenue.find(query).sort({ year: -1, month: -1 });
+  } catch (error) {
+    console.error('Error getting archived monthly revenue:', error);
+    throw error;
+  }
+};
+
+/**
+ * Send monthly revenue report email to gym admin
+ * @param {string} gymId - The gym's ID
+ * @param {string} adminEmail - Admin's email address
+ * @param {Object} monthlyRevenueData - The monthly revenue data to include in the email
+ * @returns {Promise<boolean>} - True if email sent successfully, false otherwise
+ */
+const sendMonthlyReportEmail = async (gymId, adminEmail, monthlyRevenueData) => {
+  try {
+    if (!adminEmail) {
+      console.error('No admin email provided for sending monthly report');
+      return false;
+    }
+    
+    // Get gym settings for email configuration
+    const gymSettings = await GymSettings.findOne({ gymId });
+    
+    if (!gymSettings) {
+      console.error(`No gym settings found for gym ${gymId}`);
+      return false;
+    }
+    
+    // Get gym details
+    const gymDetails = await Admin.findById(gymId);
+    const gymName = gymDetails?.gymName || 'Your Gym';
+    
+    // If no revenue data is provided, get the current month's data
+    const revenueData = monthlyRevenueData || await getCurrentMonthRevenueData(gymId);
+    
+    if (!revenueData) {
+      console.error(`Failed to get revenue data for gym ${gymId}`);
+      return false;
+    }
+    
+    // Generate HTML content for the email
+    const htmlContent = await generateReportHtml(gymId, revenueData, gymName);
+    
+    // Configure email transport
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: process.env.EMAIL_PORT || 587,
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+    
+    // Get the current date and month name
+    const currentDate = new Date();
+    const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(currentDate);
+    const year = currentDate.getFullYear();
+    
+    // Send the email
+    const mailOptions = {
+      from: `"${gymName} Revenue Report" <${process.env.EMAIL_USER}>`,
+      to: adminEmail,
+      subject: `Monthly Revenue Report - ${monthName} ${year}`,
+      html: htmlContent,
+      attachments: [
+        // You could add PDF attachments here if needed
+      ]
+    };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`📧 Monthly revenue report email sent to ${adminEmail}: ${info.messageId}`);
+    
+    return true;
+  } catch (error) {
+    console.error('Error sending monthly report email:', error);
+    return false;
+  }
+};
+
 module.exports = {
-  processMonthlyReports,
-  processGymMonthlyReport,
-  isLastDayOfMonth,
+  getMonthlyRevenue,
+  getCurrentMonthRevenueData,
+  calculateGrowth,
   generateReportHtml,
-  generatePdfReport
-}; 
+  archiveCurrentMonthRevenue,
+  initializeNewMonth,
+  sendMonthlyReportEmail,
+  processMonthlyReports,
+  getArchivedMonthlyRevenue,
+  isFirstDayOfMonth,
+  isLastDayOfMonth
+};

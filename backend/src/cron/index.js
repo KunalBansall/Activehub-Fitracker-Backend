@@ -1,7 +1,8 @@
 const cron = require('node-cron');
 const checkInactiveMembers = require('./inactivityCheck');
 const checkSubscriptionStatuses = require('./subscriptionStatusCheck');
-const { processMonthlyReports, isLastDayOfMonth } = require('../services/monthlyRevenueService');
+const { setupMonthlyRevenueJob } = require('./monthlyRevenueJob');
+const { processMonthlyReports, isLastDayOfMonth, isFirstDayOfMonth } = require('../services/monthlyRevenueService');
 const { sendWeeklyWorkoutSummaryEmails, sendWorkoutMotivationEmails } = require('../services/workoutEmailService');
 
 /**
@@ -87,6 +88,9 @@ const setupCronJobs = () => {
     console.log('Running scheduled subscription status check...');
     checkSubscriptionStatuses();
   });
+
+  // Setup monthly revenue archiving job (runs on 1st day of each month)
+  setupMonthlyRevenueJob();
 
   console.log('Cron jobs scheduled successfully');
 };

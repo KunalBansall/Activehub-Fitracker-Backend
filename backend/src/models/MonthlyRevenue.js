@@ -15,21 +15,59 @@ const monthlyRevenueSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    membershipRevenue: {
+    monthName: {
+      type: String, // e.g., "May 2025"
+      required: true,
+    },
+    // Expected revenue
+    expectedMembershipRevenue: {
       type: Number,
       required: true,
       default: 0,
     },
-    shopRevenue: {
+    expectedShopRevenue: {
       type: Number,
       required: true,
       default: 0,
     },
-    totalRevenue: {
+    totalExpectedRevenue: {
       type: Number,
       required: true,
       default: 0,
     },
+    // Collected revenue
+    collectedMembershipRevenue: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    collectedShopRevenue: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    totalCollectedRevenue: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    // Remaining/pending revenue
+    pendingMembershipRevenue: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    pendingShopRevenue: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    totalRemainingRevenue: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    // Growth metrics
     membershipGrowth: {
       type: Number,
       default: 0,
@@ -42,11 +80,26 @@ const monthlyRevenueSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Goal tracking
     revenueGoal: {
       type: Number,
       default: 0,
     },
     goalAchieved: {
+      type: Boolean,
+      default: false,
+    },
+    // Collection rate
+    collectionRate: {
+      type: Number,
+      default: 0, // Percentage of expected revenue that was collected
+    },
+    // Additional metadata
+    archivedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    emailSent: {
       type: Boolean,
       default: false,
     }

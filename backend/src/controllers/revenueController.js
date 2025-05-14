@@ -5,7 +5,12 @@ const MonthlyRevenue = require('../models/MonthlyRevenue');
 const { 
   processGymMonthlyReport, 
   generateReportHtml, 
-  generatePdfReport 
+  generatePdfReport,
+  archiveCurrentMonthRevenue,
+  initializeNewMonth,
+  getArchivedMonthlyRevenue,
+  getCurrentMonthRevenueData,
+  isFirstDayOfMonth
 } = require('../services/monthlyRevenueService');
 
 /**
@@ -340,27 +345,145 @@ exports.getMonthlyReportDetail = async (req, res) => {
  */
 exports.generateMonthlyReport = async (req, res) => {
   try {
-    const admin = req.admin;
+    const adminGymId = req.admin._id;
+    const adminEmail = req.admin.email;
     
-    // Generate the report for the current month
-    const result = await processGymMonthlyReport(admin);
+    // Process the monthly report for this gym
+    const result = await processGymMonthlyReport({ _id: adminGymId, email: adminEmail });
     
     if (result) {
-      res.json({ 
-        success: true, 
-        message: 'Monthly revenue report generated and sent successfully'
-      });
+      res.status(200).json({ success: true, message: 'Monthly report generated and sent successfully' });
     } else {
-      res.status(400).json({ 
-        success: false, 
-        message: 'Failed to generate monthly report. Make sure reports are enabled in settings.'
-      });
+      res.status(500).json({ success: false, message: 'Failed to generate monthly report' });
     }
   } catch (error) {
     console.error('Error generating monthly report:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'An error occurred while generating the report'
-    });
+    res.status(500).json({ success: false, message: 'An error occurred while generating the report' });
   }
-}; 
+};
+
+/**
+ * Get all archived months for the gym
+ * Returns a list of available archived months for the dropdown
+ */
+exports.getArchivedMonths = async (req, res) => {
+  try {
+    const adminGymId = req.admin._id;
+    
+    // Find all archived months for this gym
+    const archivedMonths = await MonthlyRevenue.find({ gymId: adminGymId })
+      .select('month year monthName')
+      .sort({ year: -1, month: -1 });
+    
+    res.status(200).json(archivedMonths);
+  } catch (error) {
+    console.error('Error fetching archived months:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch archived months' });
+  }
+};
+
+/**
+ * Get archived monthly revenue data for a specific month
+ */
+exports.getArchivedMonthlyRevenue = async (req, res) => {
+  try {
+    const adminGymId = req.admin._id;
+    const { month, year } = req.params;
+    
+    // Convert params to numbers
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt(year, 10);
+    
+    // Validate month and year
+    if (isNaN(monthNum) || isNaN(yearNum) || monthNum < 0 || monthNum > 11 || yearNum < 2000) {
+      return res.status(400).json({ success: false, message: 'Invalid month or year' });
+    }
+    
+    // Get archived data for the specified month
+    const archivedData = await getArchivedMonthlyRevenue(adminGymId, monthNum, yearNum);
+    
+    if (!archivedData) {
+      return res.status(404).json({ success: false, message: 'No archived data found for the specified month' });
+    }
+    
+    res.status(200).json(archivedData);
+  } catch (error) {
+    console.error('Error fetching archived monthly revenue:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch archived monthly revenue' });
+  }
+};
+
+/**
+ * Archive the current month's revenue data
+ * This can be triggered manually or by a scheduled job
+ */
+exports.archiveCurrentMonth = async (req, res) => {
+  try {
+    const adminGymId = req.admin._id;
+    const adminEmail = req.admin.email;
+    
+    // Check if it's the first day of the month (for manual triggers, we'll skip this check)
+    const isFirstDay = isFirstDayOfMonth();
+    const forceArchive = req.query.force === 'true';
+    
+    if (!isFirstDay && !forceArchive) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Revenue archiving is only available on the first day of the month. Use force=true to override.' 
+      });
+    }
+    
+    // Archive the current month's data
+    const archiveResult = await archiveCurrentMonthRevenue(adminGymId, adminEmail);
+    
+    if (!archiveResult) {
+      return res.status(500).json({ success: false, message: 'Failed to archive current month revenue' });
+    }
+    
+    // Initialize the new month
+    const initResult = await initializeNewMonth(adminGymId);
+    
+    if (!initResult) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Archived current month but failed to initialize new month' 
+      });
+    }
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Successfully archived current month and initialized new month',
+      archivedMonth: archiveResult.monthName,
+      archivedYear: archiveResult.year
+    });
+  } catch (error) {
+    console.error('Error archiving current month:', error);
+    res.status(500).json({ success: false, message: 'An error occurred while archiving the current month' });
+  }
+};
+
+/**
+ * Initialize a new month's revenue tracking
+ * This calculates expected revenue for the new month
+ */
+exports.initializeNewMonth = async (req, res) => {
+  try {
+    const adminGymId = req.admin._id;
+    
+    // Initialize the new month
+    const result = await initializeNewMonth(adminGymId);
+    
+    if (!result) {
+      return res.status(500).json({ success: false, message: 'Failed to initialize new month' });
+    }
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Successfully initialized new month',
+      newMonthData: result
+    });
+  } catch (error) {
+    console.error('Error initializing new month:', error);
+    res.status(500).json({ success: false, message: 'An error occurred while initializing the new month' });
+  }
+};
