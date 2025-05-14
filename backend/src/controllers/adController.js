@@ -187,7 +187,7 @@ exports.recordView = async (req, res) => {
     
     if (existingRecentView) {
       // View already recorded recently, just return success
-      console.log(`Ad view already recorded recently for ad ${id} by ${role} ${user._id}`);
+      // Skip duplicate view recording
       return res.status(200).json({ 
         message: 'Ad view already recorded recently' 
       });
@@ -207,7 +207,7 @@ exports.recordView = async (req, res) => {
     });
     
     await adView.save();
-    console.log(`New view recorded for ad ${id} by ${role} ${user._id}`);
+    // View successfully recorded
     
     res.status(200).json({ 
       message: 'Ad view recorded successfully' 
@@ -259,8 +259,7 @@ exports.recordClick = async (req, res) => {
       
       await adView.save();
       
-      // Log for debugging
-      console.log(`Click (${clickType}) recorded for ad ${id} by ${role} ${user._id}`);
+      // Click successfully recorded
     } else {
       // No previous view found, create a new record with clicked=true
       // This handles cases where the click happens without a prior view record
@@ -280,8 +279,7 @@ exports.recordClick = async (req, res) => {
       });
       await adView.save();
       
-      // Log for debugging
-      console.log(`New click record (${clickType}) created for ad ${id} by ${role} ${user._id}`);
+      // New click record created
     }
     
     res.status(200).json({ 
@@ -353,8 +351,7 @@ exports.getAdAnalytics = async (req, res) => {
     // Get all ads for reference
     const ads = await Ad.find();
     
-    // Log the filters being used
-    console.log('Analytics query filters:', { dateFilter, adFilter });
+    // Filter setup complete
     
     // Get overall analytics
     const overallStats = await AdView.aggregate([
@@ -515,8 +512,7 @@ exports.getAdAnalytics = async (req, res) => {
       }
     });
     
-    // Log the number of records found
-    console.log(`Analytics results: ${overallStats.length ? overallStats[0].totalViews : 0} views, ${allAdStats.length} ads`);
+    // Analytics processing complete
     
     res.status(200).json({
       success: true,
