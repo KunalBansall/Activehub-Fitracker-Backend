@@ -147,85 +147,97 @@ exports.forgotPassword = async (req, res) => {
       expiresIn: "1d",
     });
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
+    // Import the email service
+    const emailService = require('../services/emailService');
+    
     const gymName = user.gymName || "Your Gym"; // Fallback if gymName is not available
     const username = user.username || "User"; // Fallback if username is not available
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: `Password Reset Request - ${gymName}`,
-      text: `Hello ${username},
-
-We received a request to reset your password. Please click the link below to reset it:
-
-${process.env.FRONTEND_URL}/reset-password/${user._id}/${token}
-
-If you did not request this, please ignore this email or contact our support team.
-
-Thank you,
-${gymName} Support Team`,
-
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #2c3e50; margin-bottom: 10px;">Password Reset Request</h1>
-            <p style="color: #7f8c8d; font-size: 16px;">Hello ${username},</p>
-          </div>
-
-          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 30px;">
-            <p style="color: #34495e; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-              We received a request to reset your password for your ${gymName} account. Click the button below to reset it:
-            </p>
-
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/reset-password/${user._id}/${token}" 
-                 style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; font-size: 16px;">
-                Reset Password
-              </a>
-            </div>
-
-            <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 20px;">
-              If the button doesn't work, copy and paste this link into your browser:
-            </p>
-            <p style="color: #3498db; word-break: break-all; font-size: 14px; background-color: #f1f1f1; padding: 10px; border-radius: 4px;">
-              ${process.env.FRONTEND_URL}/reset-password/${user._id}/${token}
-            </p>
-          </div>
-
-          <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px;">
-            <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
-              If you didn't request this password reset, you can safely ignore this email.
-            </p>
-            <p style="color: #7f8c8d; font-size: 14px;">
-              For security reasons, this link will expire in 24 hours.
-            </p>
-          </div>
-
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
-            <p style="color: #7f8c8d; font-size: 14px;">
-              Best regards,<br>
-              <strong style="color: #2c3e50;">${gymName} Support Team</strong>
-            </p>
-          </div>
+    // Create the HTML email content
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2c3e50; margin-bottom: 10px;">Password Reset Request</h1>
+          <p style="color: #7f8c8d; font-size: 16px;">Hello ${username},</p>
         </div>
-      `,
-    };
 
-    transporter.sendMail(mailOptions, (error) => {
-      if (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Failed to send email" });
-      }
+        <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 30px;">
+          <p style="color: #34495e; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+            We received a request to reset your password for your ${gymName} account. Click the button below to reset it:
+          </p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL}/reset-password/${user._id}/${token}" 
+               style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; font-size: 16px;">
+              Reset Password
+            </a>
+          </div>
+
+          <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 20px;">
+            If the button doesn't work, copy and paste this link into your browser:
+          </p>
+          <p style="color: #3498db; word-break: break-all; font-size: 14px; background-color: #f1f1f1; padding: 10px; border-radius: 4px;">
+            ${process.env.FRONTEND_URL}/reset-password/${user._id}/${token}
+          </p>
+        </div>
+
+        <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px;">
+          <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">
+            If you didn't request this password reset, you can safely ignore this email.
+          </p>
+          <p style="color: #7f8c8d; font-size: 14px;">
+            For security reasons, this link will expire in 24 hours.
+          </p>
+        </div>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center;">
+          <p style="color: #7f8c8d; font-size: 14px;">
+            Best regards,<br>
+            <strong style="color: #2c3e50;">${gymName} Support Team</strong>
+          </p>
+        </div>
+      </div>
+    `;
+
+    // Use the centralized email service to send the email
+    const emailSent = await emailService.sendEmail(
+      email,
+      `Password Reset Request - ${gymName}`,
+      htmlContent
+    );
+
+    if (!emailSent) {
+      // If email sending fails, try a fallback method
+      console.error('Failed to send password reset email using email service');
+      
+      // Create a direct transporter as fallback
+      const transporter = nodemailer.createTransport({
+        service: process.env.EMAIL_SERVICE || "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS, // Try both environment variable names
+        },
+        tls: {
+          rejectUnauthorized: false // Less secure but helps with some email providers
+        }
+      });
+
+      // Send mail with the direct transporter
+      transporter.sendMail({
+        from: `"${gymName} Support" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `Password Reset Request - ${gymName}`,
+        html: htmlContent
+      }, (error) => {
+        if (error) {
+          console.error('Fallback email sending failed:', error);
+          return res.status(500).json({ message: "Failed to send email" });
+        }
+        res.json({ message: "Reset link sent successfully" });
+      });
+    } else {
       res.json({ message: "Reset link sent successfully" });
-    });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Internal Server Error" });
