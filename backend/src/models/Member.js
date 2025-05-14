@@ -90,6 +90,10 @@ const memberSchema = new mongoose.Schema(
       type: Date,
       default: Date.now
     },
+    lastDashboardLogin: {
+      type: Date,
+      default: Date.now
+    },
     lastNotificationSent: {
       type: Date,
       default: null

@@ -63,14 +63,23 @@ const checkInactiveMembers = async () => {
       console.log(`Checking for members who haven't visited since: ${inactivityDate.toISOString()}`);
       
       // Find inactive members with no recent notifications
+      // Check for both physical gym visits AND dashboard logins
       const inactiveMembers = await Member.find({
         gymId: gymId,
         status: 'active', // Only check active members
         $and: [
           {
             $or: [
-              { lastVisit: { $lt: inactivityDate } },
-              { lastVisit: null }
+              // Check if both lastVisit AND lastDashboardLogin are older than threshold
+              { 
+                $and: [
+                  { lastVisit: { $lt: inactivityDate } },
+                  { lastDashboardLogin: { $lt: inactivityDate } }
+                ]
+              },
+              // Or if either is null
+              { lastVisit: null },
+              { lastDashboardLogin: null }
             ]
           },
           {

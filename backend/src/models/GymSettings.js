@@ -10,7 +10,7 @@ const gymSettingsSchema = new mongoose.Schema(
     },
     smartInactivityAlerts: {
       type: Boolean,
-      default: false
+      default: true
     },
     inactivityThresholdDays: {
       type: Number,
