@@ -11,6 +11,9 @@ router.post('/', verifyOwner, adController.createAd);
 // Get all ads (owner only)
 router.get('/all', verifyOwner, adController.getAllAds);
 
+// Get ad analytics (owner only)
+router.get('/analytics', verifyOwner, adController.getAdAnalytics);
+
 // Get active ads for current user (admin/member)
 router.get('/', verifyTokenAndRole, adController.getAds);
 

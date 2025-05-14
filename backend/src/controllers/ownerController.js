@@ -256,10 +256,11 @@ exports.getAllGyms = async (req, res) => {
         createdAt: gym.createdAt,
         subscription: gym.subscription ? { ...gym.subscription } : {},
         totalRevenue,
-        paymentCount
+        paymentCount,
+        memberCount // Add memberCount directly to the gym object
       };
       
-      // Update the subscription object with the member count
+      // Also keep it in the subscription object for backward compatibility
       if (gymData.subscription) {
         gymData.subscription.memberCount = memberCount;
       } else {
