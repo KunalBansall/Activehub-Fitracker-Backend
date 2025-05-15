@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { setPassword, login } = require("../controllers/memberAuthController");
+const { setPassword, login, memberForgotPassword } = require("../controllers/memberAuthController");
 const Member = require('../models/Member')
 const { authenticateMember } = require('../middleware/authMember');  // Import the authentication middleware
 const Attendance = require('../models/Attendance')
@@ -8,6 +8,9 @@ const Attendance = require('../models/Attendance')
 
 // POST request to set member's password
 router.post("/set-password/:id/:token", setPassword);
+
+// POST request for member forgot password
+router.post("/forgot-password", memberForgotPassword);
 
 // POST request for member login
 router.post("/login", login);

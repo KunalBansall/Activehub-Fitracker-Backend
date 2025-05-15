@@ -82,8 +82,9 @@ app.use((req, res, next) => {
 app.use("/api/members", checkSubscription);
 
 // Rate limiting
-app.use("/api/auth", authLimiter);
-app.use("/api/member-auth", authLimiter);
+// Commented out rate limiting for testing purposes
+// app.use("/api/auth", authLimiter);
+// app.use("/api/member-auth", authLimiter);
 
 // Routes
 app.use("/api/auth", authRoutes);
