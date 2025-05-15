@@ -174,31 +174,34 @@ exports.recordView = async (req, res) => {
       return res.status(404).json({ message: 'Ad not found' });
     }
     
-    // Check if a view was already recorded in the last 15 minutes for this user and ad
-    // This prevents duplicate view counts when the same ad is shown multiple times in a short period
-    // But still allows for multiple views in the same day
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    // Check if user has viewed this ad recently (within 30 minutes)
+    // This helps prevent duplicate view counts from component re-renders
+    const thirtyMinutesAgo = new Date();
+    thirtyMinutesAgo.setMinutes(thirtyMinutesAgo.getMinutes() - 30);
+    
+    console.log(`Checking for recent views of ad ${id} by user ${user._id} in the last 30 minutes`);
+    
     const existingRecentView = await AdView.findOne({
       adId: id,
       userId: user._id,
       role,
-      viewedAt: { $gt: fifteenMinutesAgo }
+      viewedAt: { $gte: thirtyMinutesAgo }
     });
     
     if (existingRecentView) {
       // View already recorded recently, just return success
       // Skip duplicate view recording
+      console.log(`View already recorded recently for ad: ${id}, User: ${user._id}`);
       return res.status(200).json({ 
         message: 'Ad view already recorded recently' 
       });
     }
     
-    // Create new view record
+    // Create a new view record
     const adView = new AdView({
       adId: id,
       userId: user._id,
       role,
-      clicked: false,
       viewedAt: new Date(),
       deviceInfo: deviceInfo || {
         userAgent: req.headers['user-agent'],
@@ -207,10 +210,19 @@ exports.recordView = async (req, res) => {
     });
     
     await adView.save();
-    // View successfully recorded
+    console.log(`Created new view record: ${adView._id}`);
+    
+    // Verify the view was recorded by checking the database again
+    const verifyRecord = await AdView.findById(adView._id);
+    if (!verifyRecord) {
+      console.error(`Failed to verify view record: ${adView._id}`);
+    } else {
+      console.log(`Verified view record exists: ${adView._id}`);
+    }
     
     res.status(200).json({ 
-      message: 'Ad view recorded successfully' 
+      message: 'Ad view recorded successfully',
+      adViewId: adView._id
     });
   } catch (error) {
     console.error('Error recording ad view:', error);
@@ -228,63 +240,73 @@ exports.recordClick = async (req, res) => {
     const { role, user } = req;
     const { clickType = 'cta', deviceInfo } = req.body;
     
+    console.log(`Recording ad click - ID: ${id}, User: ${user._id}, Role: ${role}, Type: ${clickType}`);
+    
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.warn(`Invalid ad ID format: ${id}`);
       return res.status(400).json({ message: 'Invalid ad ID' });
     }
     
     // Check if ad exists
     const ad = await Ad.findById(id);
     if (!ad) {
+      console.warn(`Ad not found with ID: ${id}`);
       return res.status(404).json({ message: 'Ad not found' });
     }
     
-    // Find the most recent view for this ad and user
-    // We'll update it to mark it as clicked
-    let adView = await AdView.findOne({
+    // For click tracking, we'll create a new record for each click
+    // This ensures accurate click counting in analytics
+    // First, check if there's a recent view to associate with
+    let recentView = await AdView.findOne({
       adId: id,
       userId: user._id,
       role
     }).sort({ viewedAt: -1 });
     
-    if (adView) {
-      // Update the existing view record
-      adView.clicked = true;
-      adView.clickType = clickType;
-      adView.clickedAt = new Date();
-      
-      // Add device info if not already present
-      if (!adView.deviceInfo && deviceInfo) {
-        adView.deviceInfo = deviceInfo;
+    // Always create a new record for clicks to ensure accurate counting
+    console.log(`Creating new click record for ad: ${id}`);
+    
+    // Create a new AdView record with clicked=true
+    const adView = new AdView({
+      adId: id,
+      userId: user._id,
+      role,
+      clicked: true,
+      clickType: clickType,
+      clickedAt: new Date(),
+      viewedAt: recentView ? recentView.viewedAt : new Date(), // Use the original view time if available
+      deviceInfo: deviceInfo || {
+        userAgent: req.headers['user-agent'],
+        path: req.headers['referer'] || 'unknown'
       }
-      
-      await adView.save();
-      
-      // Click successfully recorded
+    });
+    
+    await adView.save();
+    console.log(`Created new click record: ${adView._id}`);
+    
+    // If this is the first click, also update the original view record
+    if (recentView && !recentView.clicked) {
+      recentView.clicked = true;
+      recentView.clickType = clickType;
+      recentView.clickedAt = new Date();
+      await recentView.save();
+      console.log(`Also updated original view record: ${recentView._id}`);
     } else {
-      // No previous view found, create a new record with clicked=true
-      // This handles cases where the click happens without a prior view record
-      // But still allows for multiple views in the same day
-      const adView = new AdView({
-        adId: id,
-        userId: user._id,
-        role,
-        clicked: true,
-        clickType: clickType,
-        clickedAt: new Date(),
-        viewedAt: new Date(), // Set viewedAt to the same time as clickedAt
-        deviceInfo: deviceInfo || {
-          userAgent: req.headers['user-agent'],
-          path: req.headers['referer'] || 'unknown'
-        }
-      });
-      await adView.save();
-      
-      // New click record created
+      console.log(`No previous view found for ad: ${id}`);
+    }
+    
+    // Verify the click was recorded by checking the database again
+    const verifyRecord = await AdView.findById(adView._id);
+    if (!verifyRecord || !verifyRecord.clicked) {
+      console.error(`Failed to verify click record: ${adView._id}`);
+    } else {
+      console.log(`Verified click record exists and is marked as clicked: ${adView._id}`);
     }
     
     res.status(200).json({ 
       message: 'Ad click recorded successfully',
-      clickType: clickType
+      clickType: clickType,
+      adViewId: adView._id
     });
   } catch (error) {
     console.error('Error recording ad click:', error);
@@ -329,6 +351,8 @@ exports.getAdAnalytics = async (req, res) => {
   try {
     const { startDate, endDate, adId } = req.query;
     
+    console.log(`Generating ad analytics - StartDate: ${startDate || 'none'}, EndDate: ${endDate || 'none'}, AdId: ${adId || 'all'}`);
+    
     // Build date filter for aggregations
     const dateFilter = {};
     if (startDate || endDate) {
@@ -350,6 +374,12 @@ exports.getAdAnalytics = async (req, res) => {
     
     // Get all ads for reference
     const ads = await Ad.find();
+    console.log(`Found ${ads.length} total ads in the system`);
+    
+    // Get a count of all ad views for verification
+    const totalViewsCount = await AdView.countDocuments({...dateFilter, ...adFilter});
+    const totalClicksCount = await AdView.countDocuments({...dateFilter, ...adFilter, clicked: true});
+    console.log(`Raw counts - Total Views: ${totalViewsCount}, Total Clicks: ${totalClicksCount}`);
     
     // Filter setup complete
     
@@ -479,14 +509,12 @@ exports.getAdAnalytics = async (req, res) => {
       }
     ]);
     
-    // Ensure all ads have stats, even if they have no views
-    // This ensures that new ads or ads with no views/clicks still appear in the analytics
+    // Combine all ad stats (including ads with no views)
     const allAdStats = ads.map(ad => {
-      const existingStat = adStats.find(stat => stat.adId.toString() === ad._id.toString());
-      
-      if (existingStat) {
+      const stat = adStats.find(s => s.adId.toString() === ad._id.toString());
+      if (stat) {
         return {
-          ...existingStat,
+          ...stat,
           title: ad.title,
           placement: ad.placement || 'Unknown',
           targetAudience: ad.targetAudience,
@@ -511,20 +539,31 @@ exports.getAdAnalytics = async (req, res) => {
         };
       }
     });
+
+    // Create default overall stats if none exist
+    const defaultOverallStats = { 
+      totalViews: totalViewsCount, 
+      totalClicks: totalClicksCount, 
+      uniqueUsers: 0, 
+      ctr: totalViewsCount > 0 ? (totalClicksCount / totalViewsCount) * 100 : 0 
+    };
     
-    // Analytics processing complete
+    // Use aggregation results or fall back to raw counts if aggregation returned no results
+    const finalOverallStats = overallStats[0] || defaultOverallStats;
+    
+    console.log('Final analytics data:', {
+      overallStats: finalOverallStats,
+      adStatsCount: adStats.length,
+      dailyStatsCount: dailyStats.length,
+      audienceStatsCount: audienceStats.length
+    });
     
     res.status(200).json({
       success: true,
-      overall: overallStats[0] || {
-        totalViews: 0,
-        totalClicks: 0,
-        uniqueUsers: 0,
-        ctr: 0
-      },
+      overall: finalOverallStats,
       adStats: allAdStats,
-      dailyStats,
-      audienceStats
+      dailyStats: dailyStats,
+      audienceStats: audienceStats
     });
   } catch (error) {
     console.error('Error fetching ad analytics:', error);
