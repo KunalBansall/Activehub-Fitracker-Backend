@@ -31,7 +31,7 @@ exports.createSubscription = async (req, res) => {
       
       // If user is in trial, add trial_period_days to the subscription
       if (trialPeriodDays > 0) {
-        console.log(`Creating subscription with ${trialPeriodDays} trial days remaining for admin ${admin._id}`);
+
         subscriptionConfig.start_at = Math.floor(new Date(admin.trialEndDate).getTime() / 1000); // Unix timestamp
       }
   
@@ -110,7 +110,7 @@ exports.verifySubscription = async (req, res) => {
     // Ensure our end date aligns with Razorpay's next_due_on
     // Note: We prioritize our calculated end date, but log any mismatch for debugging
     if (Math.abs(endDate.getTime() - razorpayNextDueDate.getTime()) > 24 * 60 * 60 * 1000) {
-      console.log(`Warning: Calculated end date (${endDate.toISOString()}) differs from Razorpay next_due_on (${razorpayNextDueDate.toISOString()}) by more than 1 day`);
+
     }
     
     // Update the admin's subscription status
@@ -131,7 +131,7 @@ exports.verifySubscription = async (req, res) => {
       }
     });
   
-    console.log(`Admin ${adminId} subscription status updated to active. Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
+
 
     // Send confirmation email with invoice details
     try {
@@ -152,7 +152,7 @@ exports.verifySubscription = async (req, res) => {
         endDate
       );
       
-      console.log(`Subscription confirmation email sent to ${admin.email}`);
+
     } catch (emailError) {
       console.error("Error sending confirmation email:", emailError);
       // Continue processing even if email fails

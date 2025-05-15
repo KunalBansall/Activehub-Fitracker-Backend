@@ -179,7 +179,7 @@ exports.recordView = async (req, res) => {
     const thirtyMinutesAgo = new Date();
     thirtyMinutesAgo.setMinutes(thirtyMinutesAgo.getMinutes() - 30);
     
-    console.log(`Checking for recent views of ad ${id} by user ${user._id} in the last 30 minutes`);
+
     
     const existingRecentView = await AdView.findOne({
       adId: id,
@@ -191,7 +191,7 @@ exports.recordView = async (req, res) => {
     if (existingRecentView) {
       // View already recorded recently, just return success
       // Skip duplicate view recording
-      console.log(`View already recorded recently for ad: ${id}, User: ${user._id}`);
+
       return res.status(200).json({ 
         message: 'Ad view already recorded recently' 
       });
@@ -210,14 +210,14 @@ exports.recordView = async (req, res) => {
     });
     
     await adView.save();
-    console.log(`Created new view record: ${adView._id}`);
+
     
     // Verify the view was recorded by checking the database again
     const verifyRecord = await AdView.findById(adView._id);
     if (!verifyRecord) {
       console.error(`Failed to verify view record: ${adView._id}`);
     } else {
-      console.log(`Verified view record exists: ${adView._id}`);
+
     }
     
     res.status(200).json({ 
@@ -240,7 +240,7 @@ exports.recordClick = async (req, res) => {
     const { role, user } = req;
     const { clickType = 'cta', deviceInfo } = req.body;
     
-    console.log(`Recording ad click - ID: ${id}, User: ${user._id}, Role: ${role}, Type: ${clickType}`);
+
     
     if (!mongoose.Types.ObjectId.isValid(id)) {
       console.warn(`Invalid ad ID format: ${id}`);
@@ -264,7 +264,7 @@ exports.recordClick = async (req, res) => {
     }).sort({ viewedAt: -1 });
     
     // Always create a new record for clicks to ensure accurate counting
-    console.log(`Creating new click record for ad: ${id}`);
+
     
     // Create a new AdView record with clicked=true
     const adView = new AdView({
@@ -282,7 +282,7 @@ exports.recordClick = async (req, res) => {
     });
     
     await adView.save();
-    console.log(`Created new click record: ${adView._id}`);
+
     
     // If this is the first click, also update the original view record
     if (recentView && !recentView.clicked) {
@@ -290,9 +290,9 @@ exports.recordClick = async (req, res) => {
       recentView.clickType = clickType;
       recentView.clickedAt = new Date();
       await recentView.save();
-      console.log(`Also updated original view record: ${recentView._id}`);
+
     } else {
-      console.log(`No previous view found for ad: ${id}`);
+
     }
     
     // Verify the click was recorded by checking the database again
@@ -300,7 +300,7 @@ exports.recordClick = async (req, res) => {
     if (!verifyRecord || !verifyRecord.clicked) {
       console.error(`Failed to verify click record: ${adView._id}`);
     } else {
-      console.log(`Verified click record exists and is marked as clicked: ${adView._id}`);
+
     }
     
     res.status(200).json({ 
@@ -351,7 +351,7 @@ exports.getAdAnalytics = async (req, res) => {
   try {
     const { startDate, endDate, adId } = req.query;
     
-    console.log(`Generating ad analytics - StartDate: ${startDate || 'none'}, EndDate: ${endDate || 'none'}, AdId: ${adId || 'all'}`);
+
     
     // Build date filter for aggregations
     const dateFilter = {};
@@ -374,7 +374,7 @@ exports.getAdAnalytics = async (req, res) => {
     
     // Get all ads for reference
     const ads = await Ad.find();
-    console.log(`Found ${ads.length} total ads in the system`);
+
     
     // Get a count of all ad views for verification
     const totalViewsCount = await AdView.countDocuments({...dateFilter, ...adFilter});

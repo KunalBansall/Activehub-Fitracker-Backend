@@ -12,10 +12,10 @@ exports.getAdminProfile = async (req, res) => {
     
         // Decode token or fetch admin profile from DB using the token
         const decoded = jwt.verify(token, process.env.JWT_SECRET); // JWT decoding example
-        // console.log("Decoded token:", decoded); // Log the decoded token to ensure it contains `_id`
+
 
         const adminProfile = await Admin.findById(decoded.id); // Example: retrieve admin profile
-        // console.log("Admin profile:", adminProfile); // Log the admin profile to ensure it's fetched correctly
+
 
     
         if (!adminProfile) {

@@ -45,7 +45,7 @@ exports.signup = async (req, res) => {
 
     const ipAddress = getClientIp(req);
     const location = await getLocationByIp(ipAddress);
-    console.log("locationandIpAdress", location, ipAddress);
+
 
     const token = generateToken(admin);
 
@@ -98,10 +98,10 @@ exports.signin = async (req, res) => {
     }
 
     const ipAddress = getClientIp(req);
-    console.log("Detected IP Address:", ipAddress); // Log the IP address
+
 
     const location = await getLocationByIp(ipAddress);
-    console.log("Detected Location:", location); // Log the location data
+
 
 
     const token = generateToken(admin);

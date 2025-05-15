@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
     const razorpaySignature = req.headers["x-razorpay-signature"];
     
     if (!razorpaySignature) {
-      console.log("❌ Webhook Error: Missing Razorpay signature");
+
       
       // Store the failed request for owner visibility
       await storeWebhookEvent(
@@ -80,7 +80,7 @@ module.exports = async (req, res) => {
       .digest("hex");
     
     if (expectedSignature !== razorpaySignature) {
-      console.log("⚠️ Webhook signature mismatch – possible spoofed request");
+
       
       // Store the signature mismatch for owner visibility
       await storeWebhookEvent(
@@ -132,7 +132,7 @@ module.exports = async (req, res) => {
     const data = payload.payload;
 
     // Log the event (without sensitive payment details)
-    console.log(`📣 Razorpay webhook received: ${event}`);
+
     
     // Check for duplicate event before processing
     const paymentId = data?.payment?.entity?.id;
@@ -143,7 +143,7 @@ module.exports = async (req, res) => {
       const isDuplicate = await isWebhookDuplicate(eventId, event);
       
       if (isDuplicate) {
-        console.log(`🔄 Duplicate event detected: ${event} for ID ${eventId}. Logging but skipping processing.`);
+
         
         // Store the duplicate event with flag for owner visibility
         const webhookRecord = await storeWebhookEvent(payload, isTestMode);
@@ -202,7 +202,7 @@ module.exports = async (req, res) => {
           processedAt: new Date(),
           note: `Successfully processed ${event}`
         });
-        console.log(`✅ Webhook processed successfully: ${event}`);
+
       } else {
         // Update with processing failure
         await WebhookData.findByIdAndUpdate(webhookRecord._id, {
@@ -210,7 +210,7 @@ module.exports = async (req, res) => {
           errorReason: `Failed to process ${event}`,
           note: `Event handler returned false for ${event}`
         });
-        console.log(`⚠️ Webhook processing failed: ${event}`);
+
       }
     } catch (processingError) {
       // Log processing error and update webhook record
@@ -272,7 +272,7 @@ async function handlePaymentSuccess(data) {
     const paymentId = paymentEntity.id;
     
     // Log payment success (without sensitive details)
-    console.log(`✅ Payment successful: ${paymentId}`);
+
     
     // Update payment record in database
     const payment = await Payment.findOneAndUpdate(
@@ -320,7 +320,7 @@ async function handlePaymentFailed(data) {
     const paymentEntity = data.payment?.entity || data;
     const paymentId = paymentEntity.id;
     
-    console.log(`❌ Payment failed: ${paymentId}`);
+
     
     await Payment.updateOne(
       { razorpay_payment_id: paymentId },
@@ -344,7 +344,7 @@ async function handlePaymentFailed(data) {
         }
       );
       
-      console.log(`Admin ${payment.adminId} moved to grace period until ${graceEndDate}`);
+
     }
   } catch (error) {
     console.error("Error handling payment failure:", error);
@@ -359,7 +359,7 @@ async function handleSubscriptionActivated(data) {
     const subscriptionEntity = data.subscription?.entity || data;
     const subscriptionId = subscriptionEntity.id;
     
-    console.log(`🔁 Subscription activated: ${subscriptionId}`);
+
     
     // Find admin by subscription ID
     const admin = await Admin.findOne({ razorpaySubscriptionId: subscriptionId });
@@ -377,7 +377,7 @@ async function handleSubscriptionActivated(data) {
         }
       );
       
-      console.log(`Admin ${admin._id} subscription activated. End date: ${endDate.toISOString()}`);
+
     }
   } catch (error) {
     console.error("Error handling subscription activation:", error);
@@ -393,7 +393,7 @@ async function handleSubscriptionCharged(data) {
     const subscriptionId = subscriptionEntity.id;
     const paymentId = data.payment?.entity?.id;
     
-    console.log(`💰 Subscription charged: ${subscriptionId}`);
+
     
     // Find admin by subscription ID
     const admin = await Admin.findOne({ razorpaySubscriptionId: subscriptionId });
@@ -427,7 +427,7 @@ async function handleSubscriptionCharged(data) {
         }
       );
       
-      console.log(`Admin ${admin._id} subscription extended. End date: ${endDate.toISOString()}`);
+
     }
   } catch (error) {
     console.error("Error handling subscription charged:", error);
@@ -442,7 +442,7 @@ async function handleSubscriptionHalted(data) {
     const subscriptionEntity = data.subscription?.entity || data;
     const subscriptionId = subscriptionEntity.id;
     
-    console.log(`⏸️ Subscription halted: ${subscriptionId}`);
+
     
     // Find admin by subscription ID
     const admin = await Admin.findOne({ razorpaySubscriptionId: subscriptionId });
@@ -461,7 +461,7 @@ async function handleSubscriptionHalted(data) {
         }
       );
       
-      console.log(`Admin ${admin._id} moved to grace period until ${graceEndDate}`);
+
     }
   } catch (error) {
     console.error("Error handling subscription halted:", error);
@@ -476,7 +476,7 @@ async function handleSubscriptionCancelled(data) {
     const subscriptionEntity = data.subscription?.entity || data;
     const subscriptionId = subscriptionEntity.id;
     
-    console.log(`🛑 Subscription cancelled: ${subscriptionId}`);
+
     
     // Find admin by subscription ID
     const admin = await Admin.findOne({ razorpaySubscriptionId: subscriptionId });
@@ -490,7 +490,7 @@ async function handleSubscriptionCancelled(data) {
         }
       );
       
-      console.log(`Admin ${admin._id} subscription cancelled`);
+
     }
   } catch (error) {
     console.error("Error handling subscription cancelled:", error);
@@ -554,7 +554,7 @@ async function updateAdminSubscription(adminId, paymentEntity) {
       }
     );
     
-    console.log(`Admin ${adminId} subscription updated. End date: ${endDate.toISOString()}`);
+
   } catch (error) {
     console.error(`Error updating admin subscription: ${error.message}`);
   }

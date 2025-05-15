@@ -252,7 +252,7 @@ exports.createMember = async (req, res) => {
     try {
       await transporter.sendMail(mailOptions);
       emailSent = true;
-      // console.log("Welcome email sent successfully to:", member.email);
+
     } catch (error) {
       console.error("Error sending welcome email:", error);
     }

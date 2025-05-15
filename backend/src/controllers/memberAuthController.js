@@ -47,8 +47,8 @@ const setPassword = async (req, res) => {
   const { id, token } = req.params;
   const { password } = req.body;
 
-  // console.log("Request Params:", { id, token });
-  // console.log("Password in request body:", password);
+
+
 
   if (!password || password.trim() === "") {
     return res.status(400).json({ message: "Password is required" });
@@ -64,7 +64,7 @@ const setPassword = async (req, res) => {
 
     // Find the member
     const member = await Member.findById(id);
-    // console.log("Member found:", member);
+
 
     if (!member) {
       return res.status(404).json({ message: "Member not found" });
@@ -72,7 +72,7 @@ const setPassword = async (req, res) => {
 
     // Hash the new password
     const hashedPassword = await bcrypt.hash(password, 12);
-    // console.log("Hashed password:", hashedPassword);
+
 
     // Update the member's password
     member.password = hashedPassword;
@@ -82,7 +82,7 @@ const setPassword = async (req, res) => {
     // Save the updated member
     await member
       .save()
-      .then(() => console.log("Member updated successfully"))
+      .then()
       .catch((err) => console.error("Error saving member:", err));
 
     return res.status(200).json({
@@ -98,11 +98,11 @@ const setPassword = async (req, res) => {
 const login = async (req, res) => {
   const { email, password } = req.body;
 
-  // console.log("Login request data:", { email, password }); // Log incoming data
+
   try {
     // Find the member by email
     const member = await Member.findOne({ email });
-    // console.log("Member data:", member); // Debugging retrieved member data
+
 
     if (!member) {
       return res.status(404).json({ message: "Member not found" });

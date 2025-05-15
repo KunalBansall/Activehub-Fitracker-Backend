@@ -120,9 +120,9 @@ exports.updateGymSettings = async (req, res) => {
       // Run the check in the background to avoid slowing down the response
       setTimeout(async () => {
         try {
-          console.log("Running immediate inactive members check after enabling feature...");
+
           await checkInactiveMembers();
-          console.log("Immediate inactive members check completed");
+
         } catch (error) {
           console.error("Error running immediate inactive members check:", error);
         }
