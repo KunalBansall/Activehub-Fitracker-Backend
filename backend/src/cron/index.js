@@ -3,7 +3,7 @@ const checkInactiveMembers = require('./inactivityCheck');
 const checkSubscriptionStatuses = require('./subscriptionStatusCheck');
 const { setupMonthlyRevenueJob } = require('./monthlyRevenueJob');
 const { processMonthlyReports, isLastDayOfMonth, isFirstDayOfMonth } = require('../services/monthlyRevenueService');
-const { sendWeeklyWorkoutSummaryEmails, sendWorkoutMotivationEmails } = require('../services/workoutEmailService');
+const { sendWeeklyWorkoutSummaryEmails, sendWorkoutMotivationEmails, resetWeeklyWorkoutProgress } = require('../services/workoutEmailService');
 
 /**
  * Force run the monthly reports regardless of date
@@ -20,6 +20,8 @@ const forceRunMonthlyReports = async () => {
     return false;
   }
 };
+
+// Test function removed - functionality now runs automatically via cron job every Sunday
 
 /**
  * Setup all cron jobs for the application
@@ -60,14 +62,19 @@ const setupCronJobs = () => {
     }
   });
   
-  // Send workout summary emails every Sunday at 9:00 AM
+  // Send workout summary emails every Sunday at 9:00 AM and then reset workout progress
   cron.schedule('0 9 * * 0', async () => {
-    console.log('🏃‍♂️ Starting Sunday workout summary emails...');
+    console.log('🏃‍♂️ Starting Sunday workout summary emails and progress reset...');
     try {
-      const successCount = await sendWeeklyWorkoutSummaryEmails();
-      console.log(`✅ Workout summary emails completed. Sent ${successCount} emails.`);
+      // First, send the weekly summary emails
+      const emailCount = await sendWeeklyWorkoutSummaryEmails();
+      console.log(`✅ Workout summary emails completed. Sent ${emailCount} emails.`);
+      
+      // Then, reset the workout progress for the new week
+      const resetCount = await resetWeeklyWorkoutProgress();
+      console.log(`✅ Workout progress reset completed. Reset ${resetCount} workout plans.`);
     } catch (error) {
-      console.error('❌ Error sending workout summary emails:', error);
+      console.error('❌ Error in Sunday workout process:', error);
     }
   });
   

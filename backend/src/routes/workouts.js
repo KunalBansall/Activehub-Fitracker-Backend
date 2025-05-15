@@ -5,7 +5,7 @@ const workoutController = require('../controllers/workoutController');
 const { authenticateAdmin } = require('../middleware/auth');
 const { authenticateMember } = require('../middleware/authMember');
 const {restrictWriteAccess} = require("../middleware/subscriptionAccess");
-
+const { testWorkoutEmailAndReset } = require('../cron/index');
 
 // Validation for workout plan creation
 const workoutPlanValidation = [
@@ -68,6 +68,26 @@ router.get('/admin/plans', workoutController.getGymWorkoutPlans);
 
 // Get all workout plans for a member
 router.get('/admin/member/:memberId/plans', workoutController.getMemberWorkoutPlans);
+
+// Test endpoint for workout email and reset functionality
+router.post('/admin/test-workout-email-reset', async (req, res) => {
+  try {
+    console.log('🧪 Testing workout email and reset functionality...');
+    const result = await testWorkoutEmailAndReset();
+    res.status(200).json({
+      success: true,
+      message: 'Workout email and reset test completed successfully',
+      result
+    });
+  } catch (error) {
+    console.error('❌ Error in test endpoint:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error running workout email and reset test',
+      error: error.message
+    });
+  }
+});
 
 // Member routes - protected with member middleware
 router.use('/member', authenticateMember);

@@ -140,6 +140,16 @@ const workoutPlanSchema = new mongoose.Schema({
   limitations: {
     type: [String],
     default: []
+  },
+  weeklyHistory: {
+    type: [{
+      weekEndingDate: Date,
+      completedWorkouts: Number,
+      missedWorkouts: Number,
+      consistency: Number,
+      dailyWorkouts: []
+    }],
+    default: []
   }
 }, {
   timestamps: true

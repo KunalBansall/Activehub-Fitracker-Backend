@@ -772,6 +772,8 @@ const sendWorkoutSummaryEmail = async (member, gymName, workoutStats, senderEmai
       streakCount = 0,
       caloriesBurned = 0,
       minutesWorkedOut = 0,
+      daysRemaining = 0,
+      monthlyVisits = 0,
       improvementAreas = []
     } = workoutStats;
     
@@ -838,11 +840,9 @@ Here's your workout summary for this week:
 
 Completion Rate: ${formattedCompletionRate}
 Completed Workouts: ${completedWorkouts}/${totalWorkouts}
-Streak: ${streakCount} days
-Strongest Day: ${strongestDay}
+Current Streak: ${streakCount} days
+Monthly Visits: ${monthlyVisits}
 Focus Areas: ${formattedFocusAreas}
-Total Time: ${minutesWorkedOut} minutes
-Estimated Calories: ${caloriesBurned}
 
 ${encouragementMessage}
 
@@ -944,18 +944,18 @@ ${gymName} Team`,
                               </tr>
                               
                               <tr>
-                                <!-- Strongest Day -->
+                                <!-- Monthly Visits -->
                                 <td width="50%" style="padding: 15px; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
                                   <table width="100%" cellpadding="0" cellspacing="0" border="0">
                                     <tr>
                                       <td style="padding-bottom: 10px;">
-                                        <span style="display: inline-block; background-color: #fae5e5; color: #e53e3e; font-size: 20px; border-radius: 50%; width: 40px; height: 40px; text-align: center; line-height: 40px;">⭐</span>
+                                        <span style="display: inline-block; background-color: #e0f2fe; color: #0284c7; font-size: 20px; border-radius: 50%; width: 40px; height: 40px; text-align: center; line-height: 40px;">📆</span>
                                       </td>
                                     </tr>
                                     <tr>
                                       <td>
-                                        <p style="margin: 0 0 5px; color: #718096; font-size: 14px;">Strongest Day</p>
-                                        <p style="margin: 0; color: #2d3748; font-size: 20px; font-weight: 600;">${strongestDay}</p>
+                                        <p style="margin: 0 0 5px; color: #718096; font-size: 14px;">Monthly Visits</p>
+                                        <p style="margin: 0; color: #2d3748; font-size: 20px; font-weight: 600;">${monthlyVisits}</p>
                                       </td>
                                     </tr>
                                   </table>
@@ -981,42 +981,6 @@ ${gymName} Team`,
                               
                               <tr>
                                 <td colspan="2" style="height: 15px;"></td>
-                              </tr>
-                              
-                              <tr>
-                                <!-- Time Spent -->
-                                <td width="50%" style="padding: 15px; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
-                                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                    <tr>
-                                      <td style="padding-bottom: 10px;">
-                                        <span style="display: inline-block; background-color: #e9f5e9; color: #38a169; font-size: 20px; border-radius: 50%; width: 40px; height: 40px; text-align: center; line-height: 40px;">⏱️</span>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td>
-                                        <p style="margin: 0 0 5px; color: #718096; font-size: 14px;">Time Spent</p>
-                                        <p style="margin: 0; color: #2d3748; font-size: 20px; font-weight: 600;">${minutesWorkedOut} mins</p>
-                                      </td>
-                                    </tr>
-                                  </table>
-                                </td>
-                                
-                                <!-- Calories -->
-                                <td width="50%" style="padding: 15px; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
-                                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                    <tr>
-                                      <td style="padding-bottom: 10px;">
-                                        <span style="display: inline-block; background-color: #fed7e2; color: #d53f8c; font-size: 20px; border-radius: 50%; width: 40px; height: 40px; text-align: center; line-height: 40px;">🔥</span>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td>
-                                        <p style="margin: 0 0 5px; color: #718096; font-size: 14px;">Est. Calories</p>
-                                        <p style="margin: 0; color: #2d3748; font-size: 20px; font-weight: 600;">${caloriesBurned}</p>
-                                      </td>
-                                    </tr>
-                                  </table>
-                                </td>
                               </tr>
                             </table>
                           </td>
