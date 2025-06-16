@@ -4,7 +4,7 @@ const nodemailer = require("nodemailer");
 const bcrypt = require("bcryptjs");
 const AdminLog = require("../models/AdminLog");
 const { getClientIp, getLocationByIp } = require("../config/locationHelper");
-const { sendWelcomeEmail } = require("../services/emailService");
+const { sendWelcomeEmail, sendDeviceLoginNotification } = require("../services/emailService");
 
 const generateToken = (admin) => {
   return jwt.sign(
@@ -115,6 +115,13 @@ exports.signin = async (req, res) => {
       deviceInfo: req.headers["user-agent"],
       timestamp: new Date(),
     });
+
+    // Send new device login notification email (non-blocking)
+    try {
+      await sendDeviceLoginNotification(admin, ipAddress, req.headers["user-agent"], location);
+    } catch (emailErr) {
+      console.error("Failed to send login notification email:", emailErr);
+    }
 
     res.json({
       _id: admin._id,

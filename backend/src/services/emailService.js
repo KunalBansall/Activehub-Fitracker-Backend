@@ -40,6 +40,53 @@ const sendEmail = async (to, subject, html) => {
 };
 
 // Email templates
+
+// Device login notification template for admins
+const deviceLoginNotificationTemplate = (admin, ipAddress, deviceInfo, location, loginTime) => {
+  const { city, region, country } = location || {};
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #333;">New Login Detected</h2>
+      <p>Dear ${admin.username || admin.name || 'Admin'},</p>
+      <p>We noticed a new login to your ActiveHub Fitracker account. Here are the details:</p>
+
+      <div style="background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin: 20px 0;">
+        <p style="margin-bottom: 10px;"><strong>IP Address:</strong> ${ipAddress}</p>
+        <p style="margin-bottom: 10px;"><strong>Location:</strong> ${city || 'Unknown'}, ${region || ''} ${country || ''}</p>
+        <p style="margin-bottom: 10px;"><strong>Device / Browser:</strong> ${deviceInfo}</p>
+        <p style="margin-bottom: 10px;"><strong>Date & Time:</strong> ${loginTime.toLocaleString()}</p>
+      </div>
+
+      <p>If this was you, no further action is needed. If you do not recognize this activity, we recommend you reset your password immediately.</p>
+
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${process.env.FRONTEND_URL}/forgot-password" style="background: linear-gradient(to right,rgb(55, 71, 109),rgb(88, 58, 236)); color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block;">Review Account Security</a>
+      </div>
+
+      <p style="font-size: 14px; color: #666;">If you continue to receive these notifications and you are not logging in, please contact our support team immediately.</p>
+
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #777; font-size: 12px;">
+        <p>© ${new Date().getFullYear()} ActiveHub. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+};
+// Function to send device login notification to admin
+const sendDeviceLoginNotification = async (admin, ipAddress, deviceInfo, location) => {
+  try {
+    if (!admin || !admin.email) {
+      console.error('Missing admin or email for login notification');
+      return false;
+    }
+    const subject = 'New Login to Your ActiveHub Fitracker Account';
+    const html = deviceLoginNotificationTemplate(admin, ipAddress, deviceInfo, location, new Date());
+    return await sendEmail(admin.email, subject, html);
+  } catch (error) {
+    console.error('Error sending login notification email:', error);
+    return false;
+  }
+};
+
 const orderConfirmationTemplate = (order, member) => {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1182,5 +1229,6 @@ module.exports = {
   subscriptionConfirmationTemplate,
   sendSubscriptionCancelledEmail,
   sendPaymentFailedEmail,
+  sendDeviceLoginNotification,
   sendWelcomeEmail
 };
