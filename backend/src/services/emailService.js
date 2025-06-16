@@ -54,7 +54,7 @@ const deviceLoginNotificationTemplate = (admin, ipAddress, deviceInfo, location,
         <p style="margin-bottom: 10px;"><strong>IP Address:</strong> ${ipAddress}</p>
         <p style="margin-bottom: 10px;"><strong>Location:</strong> ${city || 'Unknown'}, ${region || ''} ${country || ''}</p>
         <p style="margin-bottom: 10px;"><strong>Device / Browser:</strong> ${deviceInfo}</p>
-        <p style="margin-bottom: 10px;"><strong>Date & Time:</strong> ${loginTime.toLocaleString()}</p>
+        <p style="margin-bottom: 10px;"><strong>Date & Time:</strong> ${loginTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
       </div>
 
       <p>If this was you, no further action is needed. If you do not recognize this activity, we recommend you reset your password immediately.</p>
