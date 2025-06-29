@@ -1,6 +1,7 @@
 // controllers/adminController.js
 const Admin = require("../models/Admin");
 const jwt = require('jsonwebtoken');
+const { sendEmail } = require('../services/emailService');
 
 // Get Admin Profile
 exports.getAdminProfile = async (req, res) => {
@@ -34,6 +35,7 @@ exports.updateAdminProfile = async (req, res) => {
   try {
     const adminId = req.admin._id;
     const updates = { ...req.body };
+    let oldEmail = null;
 
     // Only allow these fields to be updated
     const allowedUpdates = [
@@ -106,6 +108,49 @@ exports.updateAdminProfile = async (req, res) => {
     if (updates.id && !updates.profilePhotoId) {
       updates.profilePhotoId = updates.id;
       delete updates.id;
+    }
+
+    // Get the current admin data before updating
+    const currentAdmin = await Admin.findById(adminId);
+    if (!currentAdmin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Check if email is being updated
+    if (updates.email && updates.email !== currentAdmin.email) {
+      oldEmail = currentAdmin.email;
+      // Send notification to old email
+      const emailSubject = 'Important: Your ActiveHub Account Email Has Been Updated';
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Email Address Updated</h2>
+          <p>Hello ${currentAdmin.username || 'there'},</p>
+          <p>This is to inform you that the email address associated with your ActiveHub Fitracker account has been updated.</p>
+          <p><strong>Old Email:</strong> ${oldEmail}</p>
+          <p><strong>New Email:</strong> ${updates.email}</p>
+          <p>If you did not make this change, please contact our support team immediately.</p>
+          <p>Thank you,<br>The ActiveHub Fitracker Team</p>
+        </div>
+      `;
+      
+      // Send notification to new email
+      const newEmailSubject = 'Welcome to ActiveHub - Your Account Email Has Been Updated';
+      const newEmailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Welcome to ActiveHub</h2>
+          <p>Hello ${currentAdmin.username || 'there'},</p>
+          <p>This email is now associated with your ActiveHub Fitracker account.</p>
+          <p>If you did not make this change, please contact our support team immediately.</p>
+          <p>Thank you for using ActiveHub Fitracker!</p>
+          <p>Best regards,<br>The ActiveHub Fitracker Team</p>
+        </div>
+      `;
+
+      // Send emails in parallel
+      await Promise.all([
+        sendEmail(oldEmail, emailSubject, emailHtml),
+        sendEmail(updates.email, newEmailSubject, newEmailHtml)
+      ]);
     }
 
     const admin = await Admin.findByIdAndUpdate(adminId, updates, {

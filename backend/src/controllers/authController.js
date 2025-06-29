@@ -16,10 +16,13 @@ const generateToken = (admin) => {
 
 exports.signup = async (req, res) => {
   try {
-    const { username, email, password, gymName, gymAddress, gymType } =
-      req.body;
-
-    const adminExists = await Admin.findOne({ email });
+    let { username, email, password, gymName, gymAddress, gymType } = req.body;
+    
+    // Convert email to lowercase for case-insensitive comparison
+    email = email.toLowerCase().trim();
+    
+    // Check if email already exists (case-insensitive)
+    const adminExists = await Admin.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
     if (adminExists) {
       return res.status(400).json({ message: "Email already registered" });
     }
@@ -85,11 +88,15 @@ exports.signup = async (req, res) => {
 
 exports.signin = async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    const admin = await Admin.findOne({ email });
+    let { email, password } = req.body;
+    
+    // Convert email to lowercase for case-insensitive comparison
+    email = email.toLowerCase().trim();
+    
+    // Find admin with case-insensitive email
+    const admin = await Admin.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
     if (!admin) {
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const isMatch = await admin.comparePassword(password);
@@ -142,12 +149,16 @@ exports.signin = async (req, res) => {
 
 // Forgot Password Controller
 exports.forgotPassword = async (req, res) => {
-  const { email } = req.body;
-
+  let { email } = req.body;
+  
   try {
-    const user = await Admin.findOne({ email }); // Ensure Admin schema has gymName and username fields
+    // Convert email to lowercase for case-insensitive comparison
+    email = email.toLowerCase().trim();
+    
+    // Find user with case-insensitive email
+    const user = await Admin.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
     if (!user) {
-      return res.status(404).json({ message: "User does not exist" });
+      return res.status(404).json({ message: "No account found with that email" });
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
