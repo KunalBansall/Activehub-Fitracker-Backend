@@ -1220,6 +1220,7 @@ module.exports = {
   sendEmail,
   sendOrderConfirmationEmail,
   sendAdminNotificationEmail,
+  sendGeneralEmail,
   sendOrderStatusUpdateEmail,
   sendGeneralEmail,
   sendWorkoutMotivationEmail,

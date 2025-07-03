@@ -118,8 +118,22 @@ exports.updateAdminProfile = async (req, res) => {
 
     // Check if email is being updated
     if (updates.email && updates.email !== currentAdmin.email) {
+      // First check if the new email is already in use
+      const emailExists = await Admin.findOne({ 
+        _id: { $ne: adminId }, // Exclude current admin
+        email: { $regex: new RegExp(`^${updates.email}$`, 'i') } // Case-insensitive match
+      });
+      
+      if (emailExists) {
+        return res.status(400).json({ 
+          message: "Email already in use",
+          field: "email"
+        });
+      }
+      
       oldEmail = currentAdmin.email;
-      // Send notification to old email
+      
+      // Prepare email content but don't send yet
       const emailSubject = 'Important: Your ActiveHub Account Email Has Been Updated';
       const emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -133,7 +147,7 @@ exports.updateAdminProfile = async (req, res) => {
         </div>
       `;
       
-      // Send notification to new email
+      // Prepare welcome email for new email
       const newEmailSubject = 'Welcome to ActiveHub - Your Account Email Has Been Updated';
       const newEmailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -146,13 +160,20 @@ exports.updateAdminProfile = async (req, res) => {
         </div>
       `;
 
-      // Send emails in parallel
-      await Promise.all([
-        sendEmail(oldEmail, emailSubject, emailHtml),
-        sendEmail(updates.email, newEmailSubject, newEmailHtml)
-      ]);
+      // Only send emails after successful update (see below)
+      const emailTemplates = {
+        oldEmail: { to: oldEmail, subject: emailSubject, html: emailHtml },
+        newEmail: { to: updates.email, subject: newEmailSubject, html: newEmailHtml }
+      };
+      
+      // Store email templates to be sent after successful update
+      updates._emailTemplates = emailTemplates;
     }
 
+    // Remove email templates from updates before saving
+    const emailTemplates = updates._emailTemplates;
+    delete updates._emailTemplates;
+    
     const admin = await Admin.findByIdAndUpdate(adminId, updates, {
       new: true,
       runValidators: true,
@@ -160,6 +181,19 @@ exports.updateAdminProfile = async (req, res) => {
 
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
+    }
+    
+    // Only send emails after successful update
+    if (emailTemplates) {
+      try {
+        await Promise.all([
+          sendEmail(emailTemplates.oldEmail.to, emailTemplates.oldEmail.subject, emailTemplates.oldEmail.html),
+          sendEmail(emailTemplates.newEmail.to, emailTemplates.newEmail.subject, emailTemplates.newEmail.html)
+        ]);
+      } catch (emailError) {
+        console.error('Failed to send email notifications:', emailError);
+        // Don't fail the request if email sending fails
+      }
     }
 
     res.status(200).json(admin);

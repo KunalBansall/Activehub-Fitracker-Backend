@@ -31,6 +31,7 @@ const settingsRoutes = require("./routes/settings");
 const revenueRoutes = require("./routes/revenueRoutes");
 const paymentRoutes = require("./routes/paymentsRoutes");
 const ownerRoutes = require("./routes/owner");
+const trainerRoutes = require("./routes/trainerRoutes");
 
 const checkSubscription = require("./middleware/subscriptionCheck");
 
@@ -117,6 +118,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/admin/revenue", revenueRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/owner", ownerRoutes);
+app.use("/api/trainers", trainerRoutes);
 
 // Direct route for Razorpay webhook
 const razorpayWebhookController = require("./controllers/razorpayWebhookController");

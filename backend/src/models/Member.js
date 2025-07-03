@@ -1,5 +1,11 @@
 const mongoose = require("mongoose");
 
+// Check if model exists
+if (mongoose.models.Member) {
+  module.exports = mongoose.model('Member');
+  return;
+}
+
 const memberSchema = new mongoose.Schema(
   {
     gymId: {
